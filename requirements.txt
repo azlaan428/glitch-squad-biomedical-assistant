@@ -1,0 +1,10 @@
+biopython==1.87
+langchain==0.2.16
+langchain-community==0.2.16
+langchain-core==0.2.40
+langchain-text-splitters==0.2.4
+transformers>=4.40.0
+accelerate>=0.30.0
+sentencepiece>=0.1.99
+torch
+numpy==1.26.4
