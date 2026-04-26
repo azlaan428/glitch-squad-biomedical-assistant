@@ -502,91 +502,89 @@ function toggleCitations() {
         document.getElementById("citationsList").classList.contains("open") ? "▲" : "▼";
 }
 
+function renderResults(data) {
+    const meta = document.getElementById("metaBar");
+    meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">LLaMA-3.1-8B via Groq</div>`;
+    const sections = parseSynthesis(data.synthesis);
+    const synthEl = document.getElementById("synthesis");
+    synthEl.innerHTML = "";
+    SECTIONS.forEach(s => {
+        if (!sections[s.label]) return;
+        const div = document.createElement("div");
+        div.className = "section open";
+        div.innerHTML = `<div class="section-header" onclick="toggleSection(this.parentElement)"><span class="section-tag">${s.label}</span><span class="section-chevron">▲</span></div><div class="section-body">${sections[s.label].replace(/\n/g, "<br>")}</div>`;
+        synthEl.appendChild(div);
+    });
+    const citList = document.getElementById("citationsList");
+    citList.innerHTML = "";
+    citList.classList.add("open");
+    data.citations.split("\n").forEach(line => {
+        if (!line.trim()) return;
+        const pmidMatch = line.match(/PMID:\s*(\d+)/);
+        const pmid = pmidMatch ? pmidMatch[1] : null;
+        const div = document.createElement("div");
+        div.className = "citation-item";
+        div.innerHTML = pmid ? line.replace(/PMID:\s*\d+/, `<span class="citation-pmid">PMID: ${pmid}</span>`) : line;
+        citList.appendChild(div);
+    });
+    document.getElementById("results").classList.add("visible");
+}
+
+function updateProgress(pct) {
+    document.getElementById("progressFill").style.width = pct + "%";
+    document.getElementById("progressPct").textContent = pct + "%";
+}
+
 async function submitQuery() {
     const q = document.getElementById("queryInput").value.trim();
     if (!q) return;
-
     const btn = document.getElementById("submitBtn");
     btn.disabled = true;
-
     document.getElementById("results").classList.remove("visible");
     document.getElementById("errorBox").classList.remove("visible");
     document.getElementById("pipeline").classList.add("visible");
     setStage(1);
+    updateProgress(5);
+    lastQuery = q;
 
-    // Simulate stage progression while waiting
-    const delays = [0, 3000, 8000, 14000];
-    delays.forEach((d, i) => setTimeout(() => setStage(i + 1), d));
+    const es = new EventSource("/stream?query=" + encodeURIComponent(q));
 
-    try {
-        const res = await fetch("/query", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: q })
-        });
-        const data = await res.json();
+    es.addEventListener("stage", e => {
+        const d = JSON.parse(e.data);
+        setStage(d.stage);
+        updateProgress(d.pct);
+    });
+    es.addEventListener("queries", e => {
+        const d = JSON.parse(e.data);
+        updateProgress(d.pct);
+    });
+    es.addEventListener("papers", e => {
+        const d = JSON.parse(e.data);
+        updateProgress(d.pct);
+    });
+    es.addEventListener("synthesis", e => {
+        const d = JSON.parse(e.data);
+        updateProgress(d.pct);
+    });
+    es.addEventListener("done", e => {
+        const data = JSON.parse(e.data);
         lastResult = data;
-        lastQuery = q;
-
-        setStage(5); // all done
-
-        if (data.error) {
-            document.getElementById("errorBox").textContent = "Error: " + data.error;
-            document.getElementById("errorBox").classList.add("visible");
-            return;
-        }
-
-        // Meta bar
-        const meta = document.getElementById("metaBar");
-        meta.innerHTML = `
-            <div class="badge green">${data.paper_count} papers retrieved</div>
-            <div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div>
-            <div class="badge">LLaMA-3.1-8B via Groq</div>
-        `;
-
-        // Synthesis sections
-        const sections = parseSynthesis(data.synthesis);
-        const synthEl = document.getElementById("synthesis");
-        synthEl.innerHTML = "";
-        SECTIONS.forEach(s => {
-            if (!sections[s.label]) return;
-            const div = document.createElement("div");
-            div.className = "section open";
-            div.innerHTML = `
-                <div class="section-header" onclick="toggleSection(this.parentElement)">
-                    <span class="section-tag">${s.label}</span>
-                    <span class="section-chevron">▲</span>
-                </div>
-                <div class="section-body">${sections[s.label].replace(/\n/g, '<br>')}</div>
-            `;
-            synthEl.appendChild(div);
-        });
-
-        // Citations
-        const citList = document.getElementById("citationsList");
-        citList.innerHTML = "";
-        citList.classList.add("open");
-        data.citations.split("\n").forEach(line => {
-            if (!line.trim()) return;
-            const pmidMatch = line.match(/PMID:\s*(\d+)/);
-            const pmid = pmidMatch ? pmidMatch[1] : null;
-            const div = document.createElement("div");
-            div.className = "citation-item";
-            div.innerHTML = pmid
-                ? line.replace(/PMID:\s*\d+/, `<span class="citation-pmid">PMID: ${pmid}</span>`)
-                : line;
-            citList.appendChild(div);
-        });
-
-        document.getElementById("results").classList.add("visible");
-
-    } catch (err) {
-        document.getElementById("errorBox").textContent = "Network error: " + err.message;
-        document.getElementById("errorBox").classList.add("visible");
-    } finally {
+        updateProgress(100);
+        setStage(5);
+        es.close();
+        renderResults(data);
         btn.disabled = false;
-    }
+    });
+    es.addEventListener("error", e => {
+        es.close();
+        let msg = "Pipeline error";
+        try { msg = JSON.parse(e.data).message; } catch(err) {}
+        document.getElementById("errorBox").textContent = "Error: " + msg;
+        document.getElementById("errorBox").classList.add("visible");
+        btn.disabled = false;
+    });
 }
+
 
 document.getElementById("queryInput").addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitQuery(); }

@@ -1,7 +1,7 @@
-import sys, os
+import sys, os, json
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from flask import Flask, render_template, request, jsonify, send_file
-from agent.agent import run_pipeline
+from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
+from agent.agent import run_pipeline, run_query_architect, run_literature_scout, run_evidence_synthesiser, run_citation_builder
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -12,9 +12,11 @@ import io
 
 app = Flask(__name__)
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 @app.route("/query", methods=["POST"])
 def query():
@@ -32,6 +34,57 @@ def query():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stream", methods=["GET"])
+def stream():
+    user_query = request.args.get("query", "").strip()
+    if not user_query:
+        return jsonify({"error": "Empty query"}), 400
+
+    def generate():
+        def emit(event, data):
+            return "event: " + event + "\ndata: " + json.dumps(data) + "\n\n"
+
+        try:
+            # Stage 1
+            yield emit("stage", {"stage": 1, "pct": 10})
+            queries = run_query_architect(user_query)
+            yield emit("queries", {"queries": queries, "pct": 25})
+
+            # Stage 2
+            yield emit("stage", {"stage": 2, "pct": 35})
+            papers = run_literature_scout(queries)
+            yield emit("papers", {"paper_count": len(papers), "pct": 55})
+
+            # Stage 3
+            yield emit("stage", {"stage": 3, "pct": 70})
+            synthesis = run_evidence_synthesiser(user_query, papers)
+            yield emit("synthesis", {"synthesis": synthesis, "pct": 88})
+
+            # Stage 4
+            yield emit("stage", {"stage": 4, "pct": 90})
+            citations = run_citation_builder(papers)
+            yield emit("done", {
+                "synthesis": synthesis,
+                "citations": citations,
+                "paper_count": len(papers),
+                "queries": queries,
+                "pct": 100
+            })
+
+        except Exception as e:
+            yield emit("error", {"message": str(e)})
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
@@ -69,7 +122,7 @@ def export_pdf():
     story = []
     story.append(Paragraph("ARIA — Autonomous Research Intelligence Agent", title_style))
     story.append(Paragraph(
-        f"Query: {query}  |  {paper_count} papers retrieved  |  Groq LLaMA-3.1",
+        "Query: " + query + "  |  " + str(paper_count) + " papers retrieved  |  Groq LLaMA-3.1",
         meta_style))
     story.append(HRFlowable(width="100%", thickness=1,
         color=colors.HexColor("#1e2936"), spaceAfter=16))
@@ -116,9 +169,10 @@ def export_pdf():
     doc.build(story)
     buf.seek(0)
     safe_query = "".join(c for c in query[:40] if c.isalnum() or c in " -_").strip()
-    filename = f"ARIA_{safe_query}.pdf".replace(" ", "_")
+    filename = "ARIA_" + safe_query.replace(" ", "_") + ".pdf"
     return send_file(buf, mimetype="application/pdf",
         as_attachment=True, download_name=filename)
 
+
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)
