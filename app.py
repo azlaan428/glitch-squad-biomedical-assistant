@@ -70,6 +70,7 @@ def stream():
                 "citations": citations,
                 "paper_count": len(papers),
                 "queries": queries,
+                "papers": {pmid: {"title": p.get("title",""), "abstract": p.get("abstract",""), "authors": p.get("authors",""), "journal": p.get("journal",""), "year": p.get("year","")} for pmid, p in papers.items()},
                 "pct": 100
             })
 
