@@ -174,5 +174,19 @@ def export_pdf():
         as_attachment=True, download_name=filename)
 
 
+
+@app.route("/score", methods=["POST"])
+def score():
+    data = request.get_json()
+    synthesis = data.get("synthesis", "")
+    if not synthesis:
+        return jsonify({"error": "No synthesis provided"}), 400
+    try:
+        from agent.agent import run_confidence_scorer
+        scores = run_confidence_scorer(synthesis)
+        return jsonify({"scores": scores})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

@@ -394,6 +394,50 @@
             flex-wrap: wrap;
             gap: 8px;
         }
+
+        .confidence-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            margin-left: auto;
+            margin-right: 8px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+        .conf-strong {
+            background: #00e5a020;
+            color: #00e5a0;
+            border: 1px solid #00e5a0;
+        }
+        .conf-moderate {
+            background: #f0b42920;
+            color: #f0b429;
+            border: 1px solid #f0b429;
+        }
+        .conf-weak {
+            background: #ff4d6d20;
+            color: #ff4d6d;
+            border: 1px solid #ff4d6d;
+        }
+        .conf-tooltip {
+            display: none;
+            position: absolute;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text);
+            border-radius: 3px;
+            max-width: 280px;
+            z-index: 10;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+        }
+        .confidence-badge:hover .conf-tooltip { display: block; }
+        .section-header { position: relative; }
     </style>
 </head>
 <body>
@@ -573,6 +617,7 @@ async function submitQuery() {
         setStage(5);
         es.close();
         renderResults(data);
+        scoreResults(data.synthesis);
         btn.disabled = false;
     });
     es.addEventListener("error", e => {
@@ -617,6 +662,33 @@ async function exportPDF() {
         btn.textContent = 'Export PDF';
         btn.disabled = false;
     }
+}
+
+async function scoreResults(synthesis) {
+    try {
+        const res = await fetch('/score', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({synthesis})
+        });
+        const data = await res.json();
+        if (data.error || !data.scores) return;
+        const scores = data.scores;
+        document.querySelectorAll('.section').forEach(sec => {
+            const tag = sec.querySelector('.section-tag');
+            if (!tag) return;
+            const label = tag.textContent.trim();
+            const s = scores[label];
+            if (!s) return;
+            const cls = s.score >= 8 ? 'conf-strong' : s.score >= 5 ? 'conf-moderate' : 'conf-weak';
+            const text = s.score >= 8 ? 'Strong' : s.score >= 5 ? 'Moderate' : 'Weak';
+            const badge = document.createElement('div');
+            badge.className = 'confidence-badge ' + cls;
+            badge.innerHTML = text + ' ' + s.score + '/10<div class="conf-tooltip">' + s.rationale + '</div>';
+            const chevron = sec.querySelector('.section-chevron');
+            sec.querySelector('.section-header').insertBefore(badge, chevron);
+        });
+    } catch(e) { console.warn('Scoring failed:', e); }
 }
 </script>
 </body>

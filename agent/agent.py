@@ -104,6 +104,30 @@ def run_citation_builder(papers):
     return "\n".join(result_lines)
 
 
+
+def run_confidence_scorer(synthesis):
+    llm = get_llm()
+    prompt = (
+        "You are a critical appraiser of biomedical evidence.\n"
+        "Given this synthesis, score each section for evidence quality.\n"
+        "Return ONLY valid JSON, no markdown, no explanation:\n"
+        "{\n"
+        '  "Background": {"score": 8, "rationale": "one sentence"},\n'
+        '  "Key Findings": {"score": 7, "rationale": "one sentence"},\n'
+        '  "Level of Evidence": {"score": 6, "rationale": "one sentence"},\n'
+        '  "Conflicting Evidence": {"score": 5, "rationale": "one sentence"},\n'
+        '  "Research Gaps": {"score": 7, "rationale": "one sentence"},\n'
+        '  "Clinical Implications": {"score": 6, "rationale": "one sentence"}\n'
+        "}\n\n"
+        "Scores: 8-10 = strong evidence, 5-7 = moderate, 1-4 = weak/preliminary.\n\n"
+        "Synthesis:\n" + synthesis
+    )
+    response = llm.invoke(prompt)
+    import json
+    text = response.content.strip()
+    text = text.replace("```json", "").replace("```", "").strip()
+    return json.loads(text)
+
 def run_pipeline(user_question):
     print("[1/4] Query Architect: generating search queries...")
     queries = run_query_architect(user_question)
