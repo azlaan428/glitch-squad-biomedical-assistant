@@ -1,17 +1,16 @@
 import sys, os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from flask import Flask, render_template, request, jsonify
-from agent.agent import build_agent
+from flask import Flask, render_template, request, jsonify, send_file
+from agent.agent import run_pipeline
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+from reportlab.lib.enums import TA_LEFT
+import io
 
 app = Flask(__name__)
-agent_executor = None
-
-def get_agent():
-    global agent_executor
-    if agent_executor is None:
-        agent_executor = build_agent()
-    return agent_executor
 
 @app.route("/")
 def index():
@@ -24,12 +23,102 @@ def query():
     if not user_query:
         return jsonify({"error": "Empty query"}), 400
     try:
-        agent = get_agent()
-        result = agent.invoke({"messages": [{"role": "user", "content": user_query}]})
-        response = result["messages"][-1].content
-        return jsonify({"response": response})
+        result = run_pipeline(user_query)
+        return jsonify({
+            "synthesis": result["synthesis"],
+            "citations": result["citations"],
+            "paper_count": result["paper_count"],
+            "queries": result["queries"]
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/export-pdf", methods=["POST"])
+def export_pdf():
+    data = request.get_json()
+    synthesis = data.get("synthesis", "")
+    citations = data.get("citations", "")
+    query = data.get("query", "Biomedical Research Query")
+    paper_count = data.get("paper_count", 0)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+        leftMargin=20*mm, rightMargin=20*mm,
+        topMargin=20*mm, bottomMargin=20*mm)
+
+    accent = colors.HexColor("#00e5a0")
+    dark = colors.HexColor("#111827")
+
+    title_style = ParagraphStyle("title",
+        fontName="Helvetica-Bold", fontSize=18,
+        textColor=dark, spaceAfter=4)
+    meta_style = ParagraphStyle("meta",
+        fontName="Helvetica", fontSize=9,
+        textColor=colors.HexColor("#5a6a7a"), spaceAfter=16)
+    section_label_style = ParagraphStyle("sec_label",
+        fontName="Helvetica-Bold", fontSize=10,
+        textColor=accent, spaceBefore=14, spaceAfter=4)
+    body_style = ParagraphStyle("body",
+        fontName="Helvetica", fontSize=10,
+        leading=16, textColor=dark, spaceAfter=6)
+    cite_style = ParagraphStyle("cite",
+        fontName="Helvetica", fontSize=8,
+        leading=13, textColor=colors.HexColor("#444444"),
+        spaceAfter=4)
+
+    story = []
+    story.append(Paragraph("ARIA — Autonomous Research Intelligence Agent", title_style))
+    story.append(Paragraph(
+        f"Query: {query}  |  {paper_count} papers retrieved  |  Groq LLaMA-3.1",
+        meta_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+        color=colors.HexColor("#1e2936"), spaceAfter=16))
+
+    SECTIONS = [
+        ("## Background", "Background"),
+        ("## Key Findings", "Key Findings"),
+        ("## Level of Evidence", "Level of Evidence"),
+        ("## Conflicting Evidence", "Conflicting Evidence"),
+        ("## Research Gaps", "Research Gaps"),
+        ("## Clinical Implications", "Clinical Implications"),
+    ]
+    for marker, label in SECTIONS:
+        start = synthesis.find(marker)
+        if start == -1:
+            continue
+        content_start = start + len(marker)
+        next_markers = [synthesis.find(m) for m, _ in SECTIONS if synthesis.find(m) > start]
+        end = min(next_markers) if next_markers else len(synthesis)
+        text = synthesis[content_start:end].strip()
+        if not text:
+            continue
+        story.append(Paragraph(label.upper(), section_label_style))
+        for para in text.split("\n"):
+            para = para.strip()
+            if para:
+                story.append(Paragraph(para, body_style))
+
+    story.append(Spacer(1, 8*mm))
+    story.append(HRFlowable(width="100%", thickness=1,
+        color=colors.HexColor("#1e2936"), spaceAfter=8))
+    story.append(Paragraph("REFERENCES", section_label_style))
+    for line in citations.split("\n"):
+        line = line.strip()
+        if line:
+            story.append(Paragraph(line, cite_style))
+
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph(
+        "AI-generated synthesis — verify against primary sources before clinical use.",
+        ParagraphStyle("disclaimer", fontName="Helvetica-Oblique",
+            fontSize=8, textColor=colors.HexColor("#999999"))))
+
+    doc.build(story)
+    buf.seek(0)
+    safe_query = "".join(c for c in query[:40] if c.isalnum() or c in " -_").strip()
+    filename = f"ARIA_{safe_query}.pdf".replace(" ", "_")
+    return send_file(buf, mimetype="application/pdf",
+        as_attachment=True, download_name=filename)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

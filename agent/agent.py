@@ -51,21 +51,19 @@ def run_literature_scout(queries):
     all_papers = {}
     def fetch_one(q):
         return fetch_pubmed(q, max_results=5)
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = {executor.submit(fetch_one, q): q for q in queries}
-        for future in as_completed(futures):
-            results = future.result()
-            for r in results:
-                pmid = r["pmid"]
-                if pmid not in all_papers:
-                    all_papers[pmid] = r
+    import time
+    for q in queries:
+        time.sleep(0.4)
+        for r in fetch_one(q):
+            if r["pmid"] not in all_papers:
+                all_papers[r["pmid"]] = r
     return all_papers
 
 
 def run_evidence_synthesiser(user_question, papers):
     llm = get_llm()
     parts = []
-    for pmid, p in list(papers.items())[:20]:
+    for pmid, p in list(papers.items())[:6]:
         title = p.get("title", "N/A")
         abstract = p["abstract"]
         parts.append("[PMID " + pmid + "]\nTitle: " + title + "\n" + abstract)
