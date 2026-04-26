@@ -1,45 +1,141 @@
-import sys, os
+import sys, os, re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from langchain_core.tools import Tool
-from langchain_ollama import ChatOllama
+from langchain_groq import ChatGroq
+from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
-from langchain_core.messages import SystemMessage
 from retrieval.pubmed import fetch_pubmed
 
 
-def pubmed_tool_fn(query: str) -> str:
+def get_llm():
+    return ChatGroq(
+        model="llama-3.1-8b-instant",
+        temperature=0,
+        api_key=os.environ.get("GROQ_API_KEY")
+    )
+
+
+@tool
+def PubMedSearch(query: str) -> str:
+    """Searches PubMed for biomedical literature abstracts."""
     results = fetch_pubmed(query, max_results=5)
     if not results:
         return "No abstracts found for this query."
-    return "\n\n".join([f"[PMID {r['pmid']}]\n{r['abstract']}" for r in results])
+    out = []
+    for r in results:
+        out.append("[PMID " + r["pmid"] + "]\n" + r["abstract"])
+    return "\n\n".join(out)
 
-pubmed_tool = Tool(
-    name="PubMedSearch",
-    func=pubmed_tool_fn,
-    description=(
-        "Searches PubMed for biomedical literature. "
-        "Input should be a clinical or scientific query string. "
-        "Returns abstracts relevant to the query."
+
+def run_query_architect(user_question):
+    llm = get_llm()
+    prompt = (
+        "You are a biomedical librarian expert in PubMed search strategy.\n"
+        "Given this clinical question, generate exactly 5 distinct PubMed search queries using "
+        "MeSH terminology and clinical keywords to maximise literature coverage.\n"
+        "Return ONLY a numbered list 1-5, one query per line, no explanations.\n\n"
+        "Question: " + user_question
     )
-)
+    response = llm.invoke(prompt)
+    raw_lines = response.content.strip().split("\n")
+    queries = []
+    for line in raw_lines:
+        clean = re.sub(r"^[\d]+[\.)\s]+", "", line.strip())
+        if clean:
+            queries.append(clean)
+    return queries[:5]
 
-SYSTEM_PROMPT = """You are a biomedical research assistant. When given a question:
-1. Use the PubMedSearch tool to retrieve relevant literature
-2. Read the retrieved abstracts carefully
-3. Answer the user's specific question directly based on what the abstracts say
-4. Cite the PMID numbers of the papers you reference
-5. Do not summarise unrelated papers — only answer what was asked"""
+
+def run_literature_scout(queries):
+    all_papers = {}
+    def fetch_one(q):
+        return fetch_pubmed(q, max_results=5)
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(fetch_one, q): q for q in queries}
+        for future in as_completed(futures):
+            results = future.result()
+            for r in results:
+                pmid = r["pmid"]
+                if pmid not in all_papers:
+                    all_papers[pmid] = r
+    return all_papers
+
+
+def run_evidence_synthesiser(user_question, papers):
+    llm = get_llm()
+    parts = []
+    for pmid, p in list(papers.items())[:20]:
+        title = p.get("title", "N/A")
+        abstract = p["abstract"]
+        parts.append("[PMID " + pmid + "]\nTitle: " + title + "\n" + abstract)
+    corpus = "\n\n".join(parts)
+    prompt = (
+        "You are a senior biomedical researcher writing a structured evidence synthesis.\n"
+        "Answer the clinical question using ONLY this structure:\n\n"
+        "## Background\n"
+        "Brief context (2-3 sentences).\n\n"
+        "## Key Findings\n"
+        "Most important findings with PMID citations inline.\n\n"
+        "## Level of Evidence\n"
+        "Rate: Strong / Moderate / Preliminary. Justify briefly.\n\n"
+        "## Conflicting Evidence\n"
+        "Any contradictions across studies.\n\n"
+        "## Research Gaps\n"
+        "What the literature does not answer.\n\n"
+        "## Clinical Implications\n"
+        "What this means for practice or future research.\n\n"
+        "Clinical Question: " + user_question + "\n\n"
+        "Retrieved Literature:\n" + corpus + "\n\n"
+        "Be precise and cite PMIDs throughout."
+    )
+    response = llm.invoke(prompt)
+    return response.content
+
+
+def run_citation_builder(papers):
+    result_lines = []
+    for i, (pmid, p) in enumerate(papers.items(), 1):
+        title = p.get("title", "Title unavailable")
+        authors = p.get("authors", "Authors unavailable")
+        journal = p.get("journal", "Journal unavailable")
+        year = p.get("year", "n.d.")
+        result_lines.append(
+            str(i) + ". " + authors + " (" + year + "). " + title + ". " + journal + ". PMID: " + pmid
+        )
+    return "\n".join(result_lines)
+
+
+def run_pipeline(user_question):
+    print("[1/4] Query Architect: generating search queries...")
+    queries = run_query_architect(user_question)
+    print("      Generated " + str(len(queries)) + " queries")
+    print("[2/4] Literature Scout: fetching PubMed in parallel...")
+    papers = run_literature_scout(queries)
+    print("      Retrieved " + str(len(papers)) + " unique papers")
+    print("[3/4] Evidence Synthesiser: building structured synthesis...")
+    synthesis = run_evidence_synthesiser(user_question, papers)
+    print("[4/4] Citation Builder: formatting references...")
+    citations = run_citation_builder(papers)
+    return {
+        "question": user_question,
+        "queries": queries,
+        "paper_count": len(papers),
+        "synthesis": synthesis,
+        "citations": citations,
+        "papers": papers
+    }
+
 
 def build_agent():
-    llm = ChatOllama(model="llama3.2", temperature=0)
-    return create_react_agent(llm, [pubmed_tool], prompt=SYSTEM_PROMPT)
+    llm = get_llm()
+    return create_react_agent(llm, [PubMedSearch])
+
 
 if __name__ == "__main__":
-    print("Connecting to Ollama...")
-    agent = build_agent()
-    query = "What ML methods are used for epilepsy seizure detection?"
-    print(f"\nQuery: {query}\n")
-    result = agent.invoke({"messages": [{"role": "user", "content": query}]})
-    print("\n=== Final Response ===")
-    print(result["messages"][-1].content)
+    question = "What are the most effective ML methods for epilepsy seizure detection from EEG signals?"
+    result = run_pipeline(question)
+    print("\n=== SYNTHESIS ===")
+    print(result["synthesis"])
+    print("\n=== REFERENCES ===")
+    print(result["citations"])
