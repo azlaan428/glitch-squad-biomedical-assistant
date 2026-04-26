@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glitch Squad Biomedical Assistant</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Glitch Squad</h1>
+            <p class="subtitle">Biomedical AI Research Assistant</p>
+        </header>
+
+        <main>
+            <div class="search-box">
+                <textarea id="queryInput" placeholder="Ask a biomedical research question..." rows="3"></textarea>
+                <button id="submitBtn" onclick="submitQuery()">Search Literature</button>
+            </div>
+
+            <div id="statusBar" class="status-bar hidden">
+                <span class="spinner"></span>
+                <span id="statusText">Retrieving PubMed literature...</span>
+            </div>
+
+            <div id="responseBox" class="response-box hidden">
+                <h2>Research Summary</h2>
+                <div id="responseText"></div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Powered by LangGraph + Llama 3.2 + PubMed &mdash; AMD Developer Hackathon 2026</p>
+            <p class="disclaimer">This is an AI model and may make mistakes. Always verify responses against primary sources.</p>
+        </footer>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
