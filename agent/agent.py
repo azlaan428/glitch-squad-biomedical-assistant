@@ -151,6 +151,25 @@ def run_selective_review(user_question, selected_papers):
     response = llm.invoke(prompt)
     return response.content
 
+
+def run_predictive_model(user_question, synthesis):
+    llm = get_llm()
+    prompt = (
+        "You are a biomedical futurist analyzing research trends.\n"
+        "Based on this evidence synthesis, provide two short forecasts:\n\n"
+        "## Constructive Forecast\n"
+        "2-3 sentences: What directions does the current evidence suggest the field is moving toward? "
+        "What findings are likely to be confirmed or expanded in future research?\n\n"
+        "## Destructive Forecast\n"
+        "2-3 sentences: Which current assumptions, treatments, or paradigms does the evidence suggest "
+        "may be challenged, overturned, or significantly revised in coming years?\n\n"
+        "IMPORTANT: Always produce both sections even if evidence is limited. Never ask for more input.\n""Be specific and grounded in the evidence. No speculation beyond what the data implies.\n\n"
+        "Clinical Question: " + user_question + "\n\n"
+        "Synthesis:\n" + synthesis
+    )
+    response = llm.invoke(prompt)
+    return response.content
+
 def run_pipeline(user_question):
     print("[1/4] Query Architect: generating search queries...")
     queries = run_query_architect(user_question)

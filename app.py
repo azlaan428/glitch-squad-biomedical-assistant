@@ -204,5 +204,20 @@ def selective_review():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    data = request.get_json()
+    question = data.get("question", "")
+    synthesis = data.get("synthesis", "")
+    if not synthesis:
+        return jsonify({"error": "No synthesis provided"}), 400
+    try:
+        from agent.agent import run_predictive_model
+        prediction = run_predictive_model(question, synthesis)
+        return jsonify({"prediction": prediction})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

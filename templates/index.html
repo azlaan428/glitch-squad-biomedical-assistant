@@ -519,6 +519,55 @@
             line-height: 1.8;
             color: var(--text);
         }
+
+        .prediction-block {
+            display: none;
+            margin-bottom: 32px;
+            border: 1px solid #f0b42940;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .prediction-block.visible { display: block; }
+        .prediction-header {
+            background: #f0b42910;
+            padding: 12px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: #f0b429;
+            border-bottom: 1px solid #f0b42940;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .prediction-tag {
+            font-family: var(--mono);
+            font-size: 9px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            border: 1px solid #f0b429;
+            color: #f0b429;
+        }
+        .prediction-section {
+            padding: 16px;
+            border-bottom: 1px solid #f0b42920;
+        }
+        .prediction-section:last-child { border-bottom: none; }
+        .prediction-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .prediction-label.constructive { color: var(--accent); }
+        .prediction-label.destructive { color: var(--red); }
+        .prediction-text {
+            font-size: 14px;
+            line-height: 1.75;
+            color: var(--text);
+        }
     </style>
 </head>
 <body>
@@ -565,7 +614,21 @@
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
     <button id="exportBtn" onclick="exportPDF()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Export PDF</button>
 </div>
-<div class="citations-block">
+        <div class="prediction-block" id="predictionBlock">
+            <div class="prediction-header">
+                <span>Predictive Model</span>
+                <span class="prediction-tag">AI FORECAST</span>
+            </div>
+            <div class="prediction-section">
+                <div class="prediction-label constructive">Constructive Forecast</div>
+                <div class="prediction-text" id="constructiveForecast"></div>
+            </div>
+            <div class="prediction-section">
+                <div class="prediction-label destructive">Destructive Forecast</div>
+                <div class="prediction-text" id="destructiveForecast"></div>
+            </div>
+        </div>
+        <div class="citations-block">
             <div class="citations-header" onclick="toggleCitations()">
                 <span>References</span><span id="citChevron">&#9660;</span>
             </div>
@@ -584,6 +647,7 @@
     <footer>
         <span>Powered by LangGraph &middot; Groq LLaMA-3.1 &middot; PubMed NCBI</span>
         <span>AI-generated synthesis &mdash; verify against primary sources</span>
+        <span style="color:var(--text-dim);font-family:var(--mono);font-size:10px;">Azlaan Mohammad &middot; 2026</span>
     </footer>
 </div>
 
@@ -734,6 +798,7 @@ async function submitQuery() {
         es.close();
         renderResults(data);
         scoreResults(data.synthesis);
+        setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 2000);
         btn.disabled = false;
     });
     es.addEventListener("error", e => {
@@ -844,6 +909,24 @@ async function generateReview() {
         btn.textContent = 'Generate Literature Review';
         updateReviewBar();
     }
+}
+
+async function runPredictiveModel(question, synthesis) {
+    try {
+        const res = await fetch('/predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({question, synthesis})
+        });
+        const data = await res.json();
+        if (data.error || !data.prediction) return;
+        const text = data.prediction;
+        const constructiveMatch = text.match(/## Constructive Forecast\n([\s\S]*?)(?=## Destructive Forecast|$)/);
+        const destructiveMatch = text.match(/## Destructive Forecast\n([\s\S]*?)$/);
+        if (constructiveMatch) document.getElementById('constructiveForecast').textContent = constructiveMatch[1].trim();
+        if (destructiveMatch) document.getElementById('destructiveForecast').textContent = destructiveMatch[1].trim();
+        document.getElementById('predictionBlock').classList.add('visible');
+    } catch(e) { console.warn('Prediction failed:', e); }
 }
 </script>
 </body>
