@@ -219,5 +219,41 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+import json as _json
+from datetime import datetime
+SESSIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions.json")
+
+def load_sessions():
+    try:
+        return _json.load(open(SESSIONS_FILE))
+    except:
+        return []
+
+def save_session(entry):
+    sessions = load_sessions()
+    sessions.insert(0, entry)
+    sessions = sessions[:20]
+    _json.dump(sessions, open(SESSIONS_FILE, "w"), indent=2)
+
+@app.route("/sessions", methods=["GET"])
+def get_sessions():
+    return jsonify({"sessions": load_sessions()})
+
+@app.route("/sessions/save", methods=["POST"])
+def save_session_route():
+    data = request.get_json()
+    save_session({
+        "id": datetime.now().strftime("%Y%m%d%H%M%S"),
+        "timestamp": datetime.now().strftime("%b %d, %H:%M"),
+        "query": data.get("query", ""),
+        "synthesis": data.get("synthesis", ""),
+        "citations": data.get("citations", ""),
+        "paper_count": data.get("paper_count", 0),
+        "queries": data.get("queries", []),
+        "papers": data.get("papers", {})
+    })
+    return jsonify({"ok": True})
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

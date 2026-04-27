@@ -568,9 +568,104 @@
             line-height: 1.75;
             color: var(--text);
         }
+
+        .history-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            z-index: 100;
+            letter-spacing: 0.08em;
+        }
+        .history-toggle:hover { border-color: var(--accent); color: var(--accent); }
+        .history-panel {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 300px;
+            height: 100vh;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .history-panel.open { right: 0; }
+        .history-panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-close {
+            cursor: pointer;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+        .history-close:hover { color: var(--text); }
+        .history-list {
+            overflow-y: auto;
+            flex: 1;
+            padding: 8px;
+        }
+        .history-item {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .history-item:hover { border-color: var(--accent); }
+        .history-item-query {
+            font-family: var(--sans);
+            font-size: 12px;
+            color: var(--text);
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item-meta {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+        .history-empty {
+            padding: 24px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            text-align: center;
+        }
     </style>
 </head>
 <body>
+<button class="history-toggle" onclick="toggleHistory()">&#9776; History</button>
+<div class="history-panel" id="historyPanel">
+    <div class="history-panel-header">
+        <span>Query History</span>
+        <span class="history-close" onclick="toggleHistory()">&#10005;</span>
+    </div>
+    <div class="history-list" id="historyList">
+        <div class="history-empty">No history yet</div>
+    </div>
+</div>
 <div class="container">
     <header>
         <div class="logo">AMD Developer Hackathon 2026 &mdash; Glitch Squad</div>
@@ -798,7 +893,8 @@ async function submitQuery() {
         es.close();
         renderResults(data);
         scoreResults(data.synthesis);
-        setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 2000);
+        setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 4000);
+        saveSession(data, q);
         btn.disabled = false;
     });
     es.addEventListener("error", e => {
@@ -927,6 +1023,54 @@ async function runPredictiveModel(question, synthesis) {
         if (destructiveMatch) document.getElementById('destructiveForecast').textContent = destructiveMatch[1].trim();
         document.getElementById('predictionBlock').classList.add('visible');
     } catch(e) { console.warn('Prediction failed:', e); }
+}
+
+function toggleHistory() {
+    document.getElementById('historyPanel').classList.toggle('open');
+    if (document.getElementById('historyPanel').classList.contains('open')) {
+        loadHistory();
+    }
+}
+
+async function loadHistory() {
+    try {
+        const res = await fetch('/sessions');
+        const data = await res.json();
+        const list = document.getElementById('historyList');
+        if (!data.sessions || data.sessions.length === 0) {
+            list.innerHTML = '<div class="history-empty">No history yet</div>';
+            return;
+        }
+        list.innerHTML = '';
+        data.sessions.forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<div class="history-item-query">${s.query}</div><div class="history-item-meta">${s.timestamp} &middot; ${s.paper_count} papers</div>`;
+            div.addEventListener('click', () => {
+                lastResult = s;
+                lastQuery = s.query;
+                document.getElementById('queryInput').value = s.query;
+                document.getElementById('results').classList.remove('visible');
+                document.getElementById('predictionBlock').classList.remove('visible');
+                document.getElementById('reviewOutput').classList.remove('visible');
+                document.getElementById('errorBox').classList.remove('visible');
+                renderResults(s);
+                document.getElementById('historyPanel').classList.remove('open');
+                document.getElementById('results').scrollIntoView({behavior: 'smooth'});
+            });
+            list.appendChild(div);
+        });
+    } catch(e) { console.warn('History load failed:', e); }
+}
+
+async function saveSession(data, query) {
+    try {
+        await fetch('/sessions/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({...data, query})
+        });
+    } catch(e) { console.warn('Session save failed:', e); }
 }
 </script>
 </body>
