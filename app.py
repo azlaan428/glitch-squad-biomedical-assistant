@@ -189,5 +189,20 @@ def score():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/selective-review", methods=["POST"])
+def selective_review():
+    data = request.get_json()
+    question = data.get("question", "")
+    selected_papers = data.get("papers", {})
+    if not selected_papers:
+        return jsonify({"error": "No papers selected"}), 400
+    try:
+        from agent.agent import run_selective_review
+        review = run_selective_review(question, selected_papers)
+        return jsonify({"review": review})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

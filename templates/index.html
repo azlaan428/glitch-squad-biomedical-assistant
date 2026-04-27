@@ -459,6 +459,66 @@
             font-size: 10px;
             margin-left: 6px;
         }
+
+        .citation-checkbox {
+            width: 14px;
+            height: 14px;
+            margin-right: 8px;
+            accent-color: var(--accent);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .citation-item { display: flex; align-items: flex-start; gap: 4px; }
+        .citation-text { flex: 1; }
+        .review-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: var(--accent-dim);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            margin-top: 12px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--accent);
+        }
+        .review-bar.visible { display: flex; }
+        .review-btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .review-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .review-output {
+            display: none;
+            margin-top: 16px;
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .review-output.visible { display: block; }
+        .review-output-header {
+            background: var(--accent-dim);
+            padding: 10px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--accent);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .review-output-body {
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text);
+        }
     </style>
 </head>
 <body>
@@ -512,6 +572,14 @@
             <div class="citations-list" id="citationsList"></div>
         </div>
     </div>
+        <div class="review-bar" id="reviewBar">
+            <span id="reviewBarText">0 papers selected</span>
+            <button class="review-btn" id="reviewBtn" onclick="generateReview()" disabled>Generate Literature Review</button>
+        </div>
+        <div class="review-output" id="reviewOutput">
+            <div class="review-output-header">Generated Literature Review</div>
+            <div class="review-output-body" id="reviewText"></div>
+        </div>
 
     <footer>
         <span>Powered by LangGraph &middot; Groq LLaMA-3.1 &middot; PubMed NCBI</span>
@@ -584,22 +652,39 @@ function renderResults(data) {
     citList.innerHTML = "";
     citList.classList.add("open");
     const papersMap = data.papers || {};
+    selectedPapers = {};
+    updateReviewBar();
     data.citations.split("\n").forEach(line => {
         if (!line.trim()) return;
         const pmidMatch = line.match(/PMID:\s*(\d+)/);
         const pmid = pmidMatch ? pmidMatch[1] : null;
+        const paper = pmid ? papersMap[pmid] : null;
         const div = document.createElement("div");
         div.className = "citation-item";
-        const paper = pmid ? papersMap[pmid] : null;
         const citText = pmid ? line.replace(/PMID:\s*\d+/, `<span class="citation-pmid">PMID: ${pmid}</span>`) : line;
-        div.innerHTML = citText + (paper ? `<span class="citation-toggle">▶ abstract</span><div class="abstract-body">${paper.abstract ? paper.abstract.replace(/\n/g,"<br>") : "Abstract not available"}</div>` : "");
+        const inner = document.createElement("div");
+        inner.className = "citation-text";
+        inner.innerHTML = citText + (paper ? `<span class="citation-toggle">▶ abstract</span><div class="abstract-body">${paper.abstract ? paper.abstract.replace(/\n/g,"<br>") : "Abstract not available"}</div>` : "");
         if (paper) {
-            div.addEventListener("click", () => {
-                div.classList.toggle("expanded");
-                const tog = div.querySelector(".citation-toggle");
-                if (tog) tog.textContent = div.classList.contains("expanded") ? "▼ abstract" : "▶ abstract";
+            inner.addEventListener("click", (e) => {
+                if (e.target.type === "checkbox") return;
+                inner.parentElement.classList.toggle("expanded");
+                const tog = inner.querySelector(".citation-toggle");
+                if (tog) tog.textContent = inner.parentElement.classList.contains("expanded") ? "▼ abstract" : "▶ abstract";
             });
         }
+        if (pmid && paper) {
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.className = "citation-checkbox";
+            cb.addEventListener("change", () => {
+                if (cb.checked) selectedPapers[pmid] = paper;
+                else delete selectedPapers[pmid];
+                updateReviewBar();
+            });
+            div.appendChild(cb);
+        }
+        div.appendChild(inner);
         citList.appendChild(div);
     });
     document.getElementById("results").classList.add("visible");
@@ -720,6 +805,45 @@ async function scoreResults(synthesis) {
             sec.querySelector('.section-header').insertBefore(badge, chevron);
         });
     } catch(e) { console.warn('Scoring failed:', e); }
+}
+
+let selectedPapers = {};
+
+function updateReviewBar() {
+    const count = Object.keys(selectedPapers).length;
+    const bar = document.getElementById('reviewBar');
+    const btn = document.getElementById('reviewBtn');
+    const txt = document.getElementById('reviewBarText');
+    bar.classList.toggle('visible', count > 0);
+    txt.textContent = count + ' paper' + (count !== 1 ? 's' : '') + ' selected';
+    btn.disabled = count < 2;
+}
+
+async function generateReview() {
+    const btn = document.getElementById('reviewBtn');
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    try {
+        const res = await fetch('/selective-review', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                question: lastQuery,
+                papers: selectedPapers
+            })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        document.getElementById('reviewText').textContent = data.review;
+        document.getElementById('reviewOutput').classList.add('visible');
+        document.getElementById('reviewOutput').scrollIntoView({behavior: 'smooth'});
+    } catch(e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Literature Review';
+        updateReviewBar();
+    }
 }
 </script>
 </body>

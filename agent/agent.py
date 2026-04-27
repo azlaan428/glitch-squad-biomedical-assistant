@@ -128,6 +128,29 @@ def run_confidence_scorer(synthesis):
     text = text.replace("```json", "").replace("```", "").strip()
     return json.loads(text)
 
+
+def run_selective_review(user_question, selected_papers):
+    llm = get_llm()
+    parts = []
+    for pmid, p in selected_papers.items():
+        title = p.get("title", "N/A")
+        abstract = p.get("abstract", "")[:400]
+        authors = p.get("authors", "")
+        year = p.get("year", "")
+        parts.append("[PMID " + pmid + "] " + authors + " (" + year + "). " + title + "\n" + abstract)
+    corpus = "\n\n".join(parts)
+    prompt = (
+        "You are an academic writer producing a literature review paragraph.\n"
+        "Write a single cohesive academic paragraph (200-300 words) that synthesises "
+        "the following selected papers in relation to this question.\n"
+        "Cite papers inline by PMID in parentheses e.g. (PMID: 12345678).\n"
+        "Write in formal academic prose. No bullet points. No headings.\n\n"
+        "Question: " + user_question + "\n\n"
+        "Selected Papers:\n" + corpus
+    )
+    response = llm.invoke(prompt)
+    return response.content
+
 def run_pipeline(user_question):
     print("[1/4] Query Architect: generating search queries...")
     queries = run_query_architect(user_question)
