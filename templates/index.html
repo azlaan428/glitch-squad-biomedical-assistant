@@ -653,6 +653,52 @@
             color: var(--text-dim);
             text-align: center;
         }
+
+        .table-block {
+            display: none;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .table-block.visible { display: block; }
+        .table-block-header {
+            background: var(--surface);
+            padding: 12px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+        }
+        .table-wrap { overflow-x: auto; }
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        table.data-table th {
+            background: var(--surface);
+            padding: 10px 14px;
+            text-align: left;
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        table.data-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+            line-height: 1.5;
+            vertical-align: top;
+        }
+        table.data-table tr:last-child td { border-bottom: none; }
+        table.data-table tr:hover td { background: #ffffff05; }
     </style>
 </head>
 <body>
@@ -709,6 +755,15 @@
 <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
     <button id="exportBtn" onclick="exportPDF()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Export PDF</button>
 </div>
+        <div class="table-block" id="tableBlock">
+            <div class="table-block-header" id="tableTitle">Evidence Comparison Table</div>
+            <div class="table-wrap">
+                <table class="data-table" id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
         <div class="prediction-block" id="predictionBlock">
             <div class="prediction-header">
                 <span>Predictive Model</span>
@@ -894,6 +949,7 @@ async function submitQuery() {
         renderResults(data);
         scoreResults(data.synthesis);
         setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 4000);
+        setTimeout(() => buildTable(lastQuery, data.synthesis, data.papers || {}), 6000);
         saveSession(data, q);
         btn.disabled = false;
     });
@@ -1071,6 +1127,28 @@ async function saveSession(data, query) {
             body: JSON.stringify({...data, query})
         });
     } catch(e) { console.warn('Session save failed:', e); }
+}
+
+async function buildTable(question, synthesis, papers) {
+    try {
+        const res = await fetch('/extract-table', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({question, synthesis, papers})
+        });
+        const data = await res.json();
+        if (data.error || !data.table) return;
+        const t = data.table;
+        if (!t.rows || t.rows.length === 0) return;
+        document.getElementById('tableTitle').textContent = t.title || 'Evidence Comparison Table';
+        const thead = document.getElementById('tableHead');
+        const tbody = document.getElementById('tableBody');
+        thead.innerHTML = '<tr>' + (t.columns || []).map(c => `<th>${c}</th>`).join('') + '</tr>';
+        tbody.innerHTML = t.rows.map(row =>
+            '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>'
+        ).join('');
+        document.getElementById('tableBlock').classList.add('visible');
+    } catch(e) { console.warn('Table extraction failed:', e); }
 }
 </script>
 </body>

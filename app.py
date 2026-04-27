@@ -255,5 +255,21 @@ def save_session_route():
     })
     return jsonify({"ok": True})
 
+
+@app.route("/extract-table", methods=["POST"])
+def extract_table():
+    data = request.get_json()
+    question = data.get("question", "")
+    synthesis = data.get("synthesis", "")
+    papers = data.get("papers", {})
+    if not synthesis:
+        return jsonify({"error": "No synthesis provided"}), 400
+    try:
+        from agent.agent import run_table_extractor
+        table = run_table_extractor(question, synthesis, papers)
+        return jsonify({"table": table})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

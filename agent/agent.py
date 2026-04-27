@@ -170,6 +170,41 @@ def run_predictive_model(user_question, synthesis):
     response = llm.invoke(prompt)
     return response.content
 
+
+def run_table_extractor(user_question, synthesis, papers):
+    llm = get_llm()
+    # Build a brief paper list for context
+    paper_list = []
+    for pmid, p in list(papers.items())[:10]:
+        paper_list.append("PMID " + pmid + ": " + p.get("title", "N/A") + " (" + p.get("year", "") + ")")
+    papers_str = "\n".join(paper_list)
+    prompt = (
+        "You are a biomedical data extractor.\n"
+        "From this synthesis and paper list, extract a comparison table.\n"
+        "Return ONLY valid JSON, no markdown, no explanation.\n"
+        "Format:\n"
+        "{\n"
+        '  "title": "Comparison of Methods/Treatments",\n'
+        '  "columns": ["Study (PMID)", "Method/Treatment", "Key Metric", "Outcome", "Year"],\n'
+        '  "rows": [\n'
+        '    ["Author et al. (PMID: 12345)", "CNN", "Accuracy: 95%", "Positive", "2024"],\n'
+        '    ...\n'
+        '  ]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Maximum 8 rows\n"
+        "- Only include rows where you have concrete data from the synthesis\n"
+        "- If no specific metrics exist, use concise descriptive outcomes\n"
+        "- Never invent data\n\n"
+        "Clinical Question: " + user_question + "\n\n"
+        "Papers:\n" + papers_str + "\n\n"
+        "Synthesis:\n" + synthesis[:1500]
+    )
+    response = llm.invoke(prompt)
+    import json
+    text = response.content.strip().replace("```json", "").replace("```", "").strip()
+    return json.loads(text)
+
 def run_pipeline(user_question):
     print("[1/4] Query Architect: generating search queries...")
     queries = run_query_architect(user_question)
