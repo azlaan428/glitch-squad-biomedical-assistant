@@ -1,7 +1,6 @@
 # ARIA Project Status
 
 ## What Was Built
-
 Multi-agent pipeline in agent/agent.py with 4 stages:
 1. Query Architect: generates 5 MeSH-optimised PubMed queries via Groq
 2. Literature Scout: fetches all queries sequentially with rate limiting
@@ -20,6 +19,13 @@ Additional features completed:
 - Signature: Azlaan Mohammad 2026 in footer
 - run.sh: clean restart script
 
+## UI Updates (Apr 29 2026)
+- Rebranded color scheme: ARIA Cyan (#00f5ff) replacing teal accent
+- New fonts: Inter (sans) + JetBrains Mono replacing IBM Plex
+- Animated hexagonal SVG logo with "A" monogram in header
+- Animated gradient mesh background replacing flat grid
+- Light/dark mode toggle
+
 ## Tech Stack
 - LLM: Groq LLaMA-3.1-8B-Instant
 - Agent Framework: LangGraph + LangChain
@@ -27,21 +33,24 @@ Additional features completed:
 - Web Framework: Flask with SSE streaming
 - PDF: ReportLab
 - Frontend: HTML, CSS, vanilla JS
+- Runtime: Ubuntu 26.04, Python 3.14, CUDA (RTX 3060 12GB)
 
 ## API Endpoints
-- GET  /           — main UI
-- GET  /stream     — SSE pipeline stream
-- POST /query      — standard pipeline (fallback)
-- POST /score      — confidence scoring
-- POST /predict    — predictive model
+- GET  /               — main UI
+- GET  /stream         — SSE pipeline stream
+- POST /query          — standard pipeline (fallback)
+- POST /score          — confidence scoring
+- POST /predict        — predictive model
 - POST /selective-review — focused literature review from selected papers
-- POST /extract-table    — evidence comparison table
-- POST /export-pdf       — PDF report download
-- GET  /sessions         — load query history
-- POST /sessions/save    — save completed query
+- POST /extract-table  — evidence comparison table
+- POST /export-pdf     — PDF report download
+- GET  /sessions       — load query history
+- POST /sessions/save  — save completed query
 
-## Groq API Key
-Stored in ~/.bashrc as GROQ_API_KEY environment variable
+## Environment
+- GROQ_API_KEY stored in ~/.bashrc
+- Python venv at ./venv
+- Start server: source venv/bin/activate && python app.py
 
 ## What Remains Before May 10
 1. Concept document for lablab.ai submission
