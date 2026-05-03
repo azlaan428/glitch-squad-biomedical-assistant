@@ -2,7 +2,7 @@ import sys, os, json, time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
 from agent.agent import (run_pipeline, run_query_architect, run_literature_scout,
-                         run_evidence_synthesiser, run_citation_builder, llm_invoke_with_retry)
+                         run_evidence_synthesiser, run_citation_builder, llm_invoke_with_retry, get_llm)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -13,11 +13,9 @@ import io
 
 app = Flask(__name__)
 
-
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 @app.route("/query", methods=["POST"])
 def query():
@@ -35,7 +33,6 @@ def query():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/stream", methods=["GET"])
 def stream():
@@ -111,6 +108,35 @@ def stream():
         }
     )
 
+@app.route("/suggest-queries", methods=["POST"])
+def suggest_queries():
+    data = request.get_json()
+    original_query = data.get("query", "")
+    synthesis = data.get("synthesis", "")
+    if not synthesis:
+        return jsonify({"error": "No synthesis provided"}), 400
+    try:
+        llm = get_llm()
+        prompt = (
+            f"You are a biomedical research strategist. A researcher asked:\n\"{original_query}\"\n\n"
+            f"Based on this evidence synthesis, identify 3 high-value follow-up research questions "
+            f"that would fill gaps or extend the findings. Return ONLY a JSON array of 3 strings, "
+            f"each a specific, searchable research question. No preamble, no markdown, just the JSON array.\n\n"
+            f"Synthesis excerpt:\n{synthesis[:1200]}"
+        )
+        response = llm_invoke_with_retry(llm, prompt)
+        raw = response.content.strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        suggestions = json.loads(raw.strip())
+        if not isinstance(suggestions, list):
+            suggestions = []
+        return jsonify({"suggestions": suggestions[:3]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
@@ -199,7 +225,6 @@ def export_pdf():
     return send_file(buf, mimetype="application/pdf",
         as_attachment=True, download_name=filename)
 
-
 @app.route("/score", methods=["POST"])
 def score():
     data = request.get_json()
@@ -212,7 +237,6 @@ def score():
         return jsonify({"scores": scores})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route("/selective-review", methods=["POST"])
 def selective_review():
@@ -228,7 +252,6 @@ def selective_review():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json()
@@ -243,11 +266,9 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 import json as _json
 from datetime import datetime
 SESSIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions.json")
-
 
 def load_sessions():
     try:
@@ -255,18 +276,15 @@ def load_sessions():
     except:
         return []
 
-
 def save_session(entry):
     sessions = load_sessions()
     sessions.insert(0, entry)
     sessions = sessions[:20]
     _json.dump(sessions, open(SESSIONS_FILE, "w"), indent=2)
 
-
 @app.route("/sessions", methods=["GET"])
 def get_sessions():
     return jsonify({"sessions": load_sessions()})
-
 
 @app.route("/sessions/save", methods=["POST"])
 def save_session_route():
@@ -282,7 +300,6 @@ def save_session_route():
         "papers": data.get("papers", {})
     })
     return jsonify({"ok": True})
-
 
 @app.route("/extract-table", methods=["POST"])
 def extract_table():
@@ -301,7 +318,6 @@ def extract_table():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/followup", methods=["POST"])
 def followup():
     data = request.get_json()
@@ -312,7 +328,6 @@ def followup():
     if not question or not synthesis:
         return jsonify({"error": "Missing question or synthesis"}), 400
     try:
-        from agent.agent import get_llm
         llm = get_llm()
         corpus = "\n\n".join(
             f"[PMID {pmid}] {p.get('title','')}\n{p.get('abstract','')[:300]}"
@@ -331,7 +346,6 @@ def followup():
         return jsonify({"answer": response.content})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)

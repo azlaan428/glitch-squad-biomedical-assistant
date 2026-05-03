@@ -318,6 +318,8 @@
 
         .section.open .section-body { display: block; }
 
+
+
         .citations-block {
             border: 1px solid var(--border);
             border-radius: 4px;
@@ -764,6 +766,62 @@
 
         .followup-answer.visible { display: block; }
 
+        /* ── Query Suggestions block ── */
+        .suggestions-block {
+            display: none;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .suggestions-block.visible { display: block; }
+        .suggestions-header {
+            background: var(--surface);
+            padding: 10px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .suggestions-loading {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            border-top-color: var(--accent);
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .suggestions-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+        .suggestion-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+            line-height: 1.5;
+        }
+        .suggestion-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .suggestion-prefix {
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            display: block;
+            margin-bottom: 3px;
+        }
+
         @keyframes hexTrace {
             0% { stroke-dashoffset: 200; opacity: 0.3; }
             50% { opacity: 1; }
@@ -873,6 +931,15 @@
             <div class="followup-answer" id="followupAnswer"></div>
         </div>
 
+        <!-- Query Suggestions -->
+        <div class="suggestions-block" id="suggestionsBlock">
+            <div class="suggestions-header">
+                <span id="suggestionsSpinner" class="suggestions-loading"></span>
+                Suggested Follow-up Queries
+            </div>
+            <div class="suggestions-list" id="suggestionsList"></div>
+        </div>
+
         <div class="table-block" id="tableBlock">
             <div class="table-block-header" id="tableTitle">Evidence Comparison Table</div>
             <div class="table-wrap">
@@ -968,19 +1035,24 @@ function toggleCitations() {
         document.getElementById("citationsList").classList.contains("open") ? "▲" : "▼";
 }
 
-function renderResults(data) {
+// ── Render Results ────────────────────────────────────────
+async function renderResults(data) {
     const meta = document.getElementById("metaBar");
     meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">LLaMA-3.1-8B via Groq</div>`;
     const sections = parseSynthesis(data.synthesis);
     const synthEl = document.getElementById("synthesis");
     synthEl.innerHTML = "";
-    SECTIONS.forEach(s => {
-        if (!sections[s.label]) return;
-        const div = document.createElement("div");
-        div.className = "section open";
-        div.innerHTML = `<div class="section-header" onclick="toggleSection(this.parentElement)"><span class="section-tag">${s.label}</span><span class="section-chevron">▲</span></div><div class="section-body">${sections[s.label].replace(/\n/g, "<br>")}</div>`;
-        synthEl.appendChild(div);
-    });
+
+    {
+        SECTIONS.forEach(s => {
+            if (!sections[s.label]) return;
+            const div = document.createElement("div");
+            div.className = "section open";
+            div.innerHTML = `<div class="section-header" onclick="toggleSection(this.parentElement)"><span class="section-tag">${s.label}</span><span class="section-chevron">▲</span></div><div class="section-body">${sections[s.label].replace(/\n/g, "<br>")}</div>`;
+            synthEl.appendChild(div);
+        });
+    }
+
     const citList = document.getElementById("citationsList");
     citList.innerHTML = "";
     citList.classList.add("open");
@@ -1021,7 +1093,6 @@ function renderResults(data) {
         citList.appendChild(div);
     });
     document.getElementById("results").classList.add("visible");
-    // Show follow-up block
     document.getElementById("followupBlock").classList.add("visible");
     document.getElementById("followupAnswer").classList.remove("visible");
     document.getElementById("followupAnswer").innerHTML = "";
@@ -1040,6 +1111,10 @@ async function submitQuery() {
     btn.disabled = true;
     document.getElementById("results").classList.remove("visible");
     document.getElementById("errorBox").classList.remove("visible");
+    document.getElementById("predictionBlock").classList.remove("visible");
+    document.getElementById("tableBlock").classList.remove("visible");
+    document.getElementById("suggestionsBlock").classList.remove("visible");
+    document.getElementById("suggestionsList").innerHTML = "";
     document.getElementById("pipeline").classList.add("visible");
     setStage(1);
     updateProgress(5);
@@ -1051,16 +1126,17 @@ async function submitQuery() {
     es.addEventListener("queries", e => { updateProgress(JSON.parse(e.data).pct); });
     es.addEventListener("papers", e => { updateProgress(JSON.parse(e.data).pct); });
     es.addEventListener("synthesis", e => { updateProgress(JSON.parse(e.data).pct); });
-    es.addEventListener("done", e => {
+    es.addEventListener("done", async e => {
         const data = JSON.parse(e.data);
         lastResult = data;
         updateProgress(100);
         setStage(5);
         es.close();
-        renderResults(data);
-	setTimeout(() => scoreResults(data.synthesis), 2000);
-	setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 20000);
-	setTimeout(() => buildTable(lastQuery, data.synthesis, data.papers || {}), 38000);
+        await renderResults(data); // instant render
+        setTimeout(() => scoreResults(data.synthesis), 2000);
+        setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 20000);
+        setTimeout(() => buildTable(lastQuery, data.synthesis, data.papers || {}), 38000);
+        setTimeout(() => fetchQuerySuggestions(lastQuery, data.synthesis), 56000);
         saveSession(data, q);
         btn.disabled = false;
     });
@@ -1080,6 +1156,42 @@ document.getElementById("queryInput").addEventListener("keydown", e => {
 
 let lastResult = null;
 let lastQuery = '';
+
+// ── Query Suggestions ─────────────────────────────────────
+async function fetchQuerySuggestions(query, synthesis) {
+    const block = document.getElementById('suggestionsBlock');
+    const list = document.getElementById('suggestionsList');
+    const spinner = document.getElementById('suggestionsSpinner');
+    block.classList.add('visible');
+    spinner.style.display = 'inline-block';
+    list.innerHTML = '';
+    try {
+        const res = await fetch('/suggest-queries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, synthesis })
+        });
+        const data = await res.json();
+        spinner.style.display = 'none';
+        if (data.error || !data.suggestions || data.suggestions.length === 0) {
+            list.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">Could not generate suggestions.</span>';
+            return;
+        }
+        data.suggestions.forEach((s, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'suggestion-btn';
+            btn.innerHTML = `<span class="suggestion-prefix">Suggestion ${i + 1}</span>${s}`;
+            btn.addEventListener('click', () => {
+                document.getElementById('queryInput').value = s;
+                submitQuery();
+            });
+            list.appendChild(btn);
+        });
+    } catch(e) {
+        spinner.style.display = 'none';
+        list.innerHTML = '<span style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">Could not generate suggestions.</span>';
+    }
+}
 
 async function exportPDF() {
     const btn = document.getElementById('exportBtn');
@@ -1232,7 +1344,8 @@ async function loadHistory() {
                 document.getElementById('predictionBlock').classList.remove('visible');
                 document.getElementById('reviewOutput').classList.remove('visible');
                 document.getElementById('errorBox').classList.remove('visible');
-                renderResults(s);
+                document.getElementById('suggestionsBlock').classList.remove('visible');
+                renderResults(s); // instant render for history
                 document.getElementById('historyPanel').classList.remove('open');
                 document.getElementById('results').scrollIntoView({behavior: 'smooth'});
             });

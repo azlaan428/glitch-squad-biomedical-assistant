@@ -191,7 +191,9 @@ def run_table_extractor(user_question, synthesis, papers):
     llm = get_llm()
     paper_list = []
     for pmid, p in list(papers.items())[:10]:
-        paper_list.append("PMID " + pmid + ": " + p.get("title", "N/A") + " (" + p.get("year", "") + ")")
+        authors = p.get("authors", "")
+        first_author = authors.split(",")[0].strip() if authors else "Unknown"
+        paper_list.append("PMID " + pmid + ": " + first_author + " - " + p.get("title", "N/A") + " (" + p.get("year", "") + ")")
     papers_str = "\n".join(paper_list)
     prompt = (
         "You are a biomedical data extractor.\n"
@@ -202,12 +204,14 @@ def run_table_extractor(user_question, synthesis, papers):
         '  "title": "Comparison of Methods/Treatments",\n'
         '  "columns": ["Study (PMID)", "Method/Treatment", "Key Metric", "Outcome", "Year"],\n'
         '  "rows": [\n'
-        '    ["Author et al. (PMID: 12345)", "CNN", "Accuracy: 95%", "Positive", "2024"],\n'
+        '    ["Smith et al. (PMID: 12345)", "CNN", "Accuracy: 95%", "Positive", "2024"],\n'
         '    ...\n'
         '  ]\n'
         "}\n\n"
         "Rules:\n"
-        "- Maximum 8 rows\n"
+        "- Maximum 8 rows, NO duplicate rows\n"
+        "- Each study should appear at most once\n"
+        "- Use the actual first author surname from the paper list, never write 'Author'\n"
         "- Only include rows where you have concrete data from the synthesis\n"
         "- If no specific metrics exist, use concise descriptive outcomes\n"
         "- Never invent data\n\n"
@@ -215,11 +219,10 @@ def run_table_extractor(user_question, synthesis, papers):
         "Papers:\n" + papers_str + "\n\n"
         "Synthesis:\n" + synthesis[:1500]
     )
-    response = llm_invoke_with_retry(llm, prompt)
+    response = llm.invoke(prompt)
     import json
     text = response.content.strip().replace("```json", "").replace("```", "").strip()
     return json.loads(text)
-
 
 def run_prisma_filter(user_question, papers):
     llm = get_llm()
