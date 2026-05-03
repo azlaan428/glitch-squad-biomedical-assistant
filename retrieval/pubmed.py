@@ -1,7 +1,8 @@
 import re
+import ssl
 from Bio import Entrez
-
 Entrez.email = "azlaanmohammad66@gmail.com"
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def parse_abstract_block(pmid, block):
