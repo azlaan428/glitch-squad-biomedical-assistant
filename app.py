@@ -273,5 +273,35 @@ def extract_table():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+@app.route("/followup", methods=["POST"])
+def followup():
+    data = request.get_json()
+    question = data.get("question", "")
+    original_question = data.get("original_question", "")
+    synthesis = data.get("synthesis", "")
+    papers = data.get("papers", {})
+    if not question or not synthesis:
+        return jsonify({"error": "Missing question or synthesis"}), 400
+    try:
+        from agent.agent import get_llm
+        llm = get_llm()
+        corpus = "\n\n".join(
+            f"[PMID {pmid}] {p.get('title','')}\n{p.get('abstract','')[:300]}"
+            for pmid, p in list(papers.items())[:6]
+        )
+        prompt = (
+            f"You are a biomedical research assistant. The user previously asked:\n"
+            f"\"{original_question}\"\n\n"
+            f"Based on this evidence synthesis and retrieved papers, answer their follow-up question.\n"
+            f"Be concise and cite PMIDs where relevant.\n\n"
+            f"Synthesis:\n{synthesis[:1500]}\n\n"
+            f"Papers:\n{corpus}\n\n"
+            f"Follow-up Question: {question}"
+        )
+        response = llm.invoke(prompt)
+        return jsonify({"answer": response.content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)
