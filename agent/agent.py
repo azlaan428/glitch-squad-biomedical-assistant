@@ -9,11 +9,27 @@ from retrieval.pubmed import fetch_pubmed
 
 
 def get_llm():
+    from langchain_groq import ChatGroq
     return ChatGroq(
         model="llama-3.1-8b-instant",
         temperature=0,
         api_key=os.environ.get("GROQ_API_KEY")
     )
+
+
+def llm_invoke_with_retry(llm, prompt, max_retries=5):
+    import time
+    for attempt in range(max_retries):
+        try:
+            return llm.invoke(prompt)
+        except Exception as e:
+            if "429" in str(e) or "rate_limit" in str(e).lower():
+                wait = 10 * (attempt + 1)
+                print(f"[ARIA] Rate limit hit, waiting {wait}s (attempt {attempt+1}/{max_retries})")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError("Max retries exceeded on rate limit")
 
 
 @tool
@@ -37,7 +53,7 @@ def run_query_architect(user_question):
         "Return ONLY a numbered list 1-5, one query per line, no explanations.\n\n"
         "Question: " + user_question
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     raw_lines = response.content.strip().split("\n")
     queries = []
     for line in raw_lines:
@@ -87,7 +103,7 @@ def run_evidence_synthesiser(user_question, papers):
         "Retrieved Literature:\n" + corpus + "\n\n"
         "Be precise and cite PMIDs throughout."
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     return response.content
 
 
@@ -102,7 +118,6 @@ def run_citation_builder(papers):
             str(i) + ". " + authors + " (" + year + "). " + title + ". " + journal + ". PMID: " + pmid
         )
     return "\n".join(result_lines)
-
 
 
 def run_confidence_scorer(synthesis):
@@ -122,7 +137,7 @@ def run_confidence_scorer(synthesis):
         "Scores: 8-10 = strong evidence, 5-7 = moderate, 1-4 = weak/preliminary.\n\n"
         "Synthesis:\n" + synthesis
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     import json
     text = response.content.strip()
     text = text.replace("```json", "").replace("```", "").strip()
@@ -148,7 +163,7 @@ def run_selective_review(user_question, selected_papers):
         "Question: " + user_question + "\n\n"
         "Selected Papers:\n" + corpus
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     return response.content
 
 
@@ -163,17 +178,17 @@ def run_predictive_model(user_question, synthesis):
         "## Destructive Forecast\n"
         "2-3 sentences: Which current assumptions, treatments, or paradigms does the evidence suggest "
         "may be challenged, overturned, or significantly revised in coming years?\n\n"
-        "IMPORTANT: Always produce both sections even if evidence is limited. Never ask for more input.\n""Be specific and grounded in the evidence. No speculation beyond what the data implies.\n\n"
+        "IMPORTANT: Always produce both sections even if evidence is limited. Never ask for more input.\n"
+        "Be specific and grounded in the evidence. No speculation beyond what the data implies.\n\n"
         "Clinical Question: " + user_question + "\n\n"
         "Synthesis:\n" + synthesis
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     return response.content
 
 
 def run_table_extractor(user_question, synthesis, papers):
     llm = get_llm()
-    # Build a brief paper list for context
     paper_list = []
     for pmid, p in list(papers.items())[:10]:
         paper_list.append("PMID " + pmid + ": " + p.get("title", "N/A") + " (" + p.get("year", "") + ")")
@@ -200,10 +215,55 @@ def run_table_extractor(user_question, synthesis, papers):
         "Papers:\n" + papers_str + "\n\n"
         "Synthesis:\n" + synthesis[:1500]
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     import json
     text = response.content.strip().replace("```json", "").replace("```", "").strip()
     return json.loads(text)
+
+
+def run_prisma_filter(user_question, papers):
+    llm = get_llm()
+    import json
+    paper_list = []
+    for pmid, p in papers.items():
+        paper_list.append(
+            "PMID " + pmid + ": " + p.get("title", "N/A") + "\n" +
+            p.get("abstract", "")[:200]
+        )
+    corpus = "\n\n".join(paper_list)
+    prompt = (
+        "You are a systematic review methodologist applying PRISMA screening criteria.\n"
+        "For each paper, decide if it should be INCLUDED or EXCLUDED for answering this clinical question.\n"
+        "Return ONLY valid JSON, no markdown, no explanation.\n"
+        "Format:\n"
+        "{\n"
+        '  "decisions": [\n'
+        '    {"pmid": "12345678", "decision": "included", "reason": "one sentence"},\n'
+        '    {"pmid": "87654321", "decision": "excluded", "reason": "one sentence"}\n'
+        '  ]\n'
+        "}\n\n"
+        "Inclusion criteria: directly relevant to the clinical question, has empirical data or clinical findings.\n"
+        "Exclusion criteria: off-topic, editorial, commentary without data, animal studies if human data exists.\n\n"
+        "Clinical Question: " + user_question + "\n\n"
+        "Papers:\n" + corpus
+    )
+    response = llm_invoke_with_retry(llm, prompt)
+    text = response.content.strip().replace("```json", "").replace("```", "").strip()
+    data = json.loads(text)
+    result = {}
+    for d in data["decisions"]:
+        pmid = d["pmid"]
+        if pmid in papers:
+            result[pmid] = {
+                **papers[pmid],
+                "included": d["decision"] == "included",
+                "reason": d["reason"]
+            }
+    for pmid in papers:
+        if pmid not in result:
+            result[pmid] = {**papers[pmid], "included": True, "reason": "Not reviewed"}
+    return result
+
 
 def run_pipeline(user_question):
     print("[1/4] Query Architect: generating search queries...")

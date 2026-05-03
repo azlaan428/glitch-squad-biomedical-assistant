@@ -1058,9 +1058,9 @@ async function submitQuery() {
         setStage(5);
         es.close();
         renderResults(data);
-        scoreResults(data.synthesis);
-        setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 4000);
-        setTimeout(() => buildTable(lastQuery, data.synthesis, data.papers || {}), 6000);
+	setTimeout(() => scoreResults(data.synthesis), 2000);
+	setTimeout(() => runPredictiveModel(lastQuery, data.synthesis), 20000);
+	setTimeout(() => buildTable(lastQuery, data.synthesis, data.papers || {}), 38000);
         saveSession(data, q);
         btn.disabled = false;
     });

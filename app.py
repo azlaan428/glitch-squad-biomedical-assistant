@@ -1,7 +1,8 @@
-import sys, os, json
+import sys, os, json, time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
-from agent.agent import run_pipeline, run_query_architect, run_literature_scout, run_evidence_synthesiser, run_citation_builder
+from agent.agent import (run_pipeline, run_query_architect, run_literature_scout,
+                         run_evidence_synthesiser, run_citation_builder, llm_invoke_with_retry)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -55,22 +56,46 @@ def stream():
             # Stage 2
             yield emit("stage", {"stage": 2, "pct": 35})
             papers = run_literature_scout(queries)
-            yield emit("papers", {"paper_count": len(papers), "pct": 55})
+            yield emit("papers", {"paper_count": len(papers), "pct": 50})
 
-            # Stage 3
-            yield emit("stage", {"stage": 3, "pct": 70})
-            synthesis = run_evidence_synthesiser(user_query, papers)
+            # PRISMA filter
+            yield emit("stage", {"stage": 3, "pct": 55})
+            from agent.agent import run_prisma_filter
+            filtered = run_prisma_filter(user_query, papers)
+            included = {pmid: p for pmid, p in filtered.items() if p["included"]}
+            yield emit("prisma", {
+                "filtered": {
+                    pmid: {"title": p.get("title", ""), "included": p["included"], "reason": p["reason"]}
+                    for pmid, p in filtered.items()
+                },
+                "included_count": len(included),
+                "excluded_count": len(filtered) - len(included),
+                "pct": 65
+            })
+            time.sleep(12)
+
+            # Stage 4 - synthesise on included papers only
+            yield emit("stage", {"stage": 4, "pct": 70})
+            synthesis = run_evidence_synthesiser(user_query, included)
             yield emit("synthesis", {"synthesis": synthesis, "pct": 88})
 
-            # Stage 4
-            yield emit("stage", {"stage": 4, "pct": 90})
-            citations = run_citation_builder(papers)
+            # Stage 5
+            yield emit("stage", {"stage": 5, "pct": 90})
+            citations = run_citation_builder(included)
             yield emit("done", {
                 "synthesis": synthesis,
                 "citations": citations,
-                "paper_count": len(papers),
+                "paper_count": len(included),
                 "queries": queries,
-                "papers": {pmid: {"title": p.get("title",""), "abstract": p.get("abstract",""), "authors": p.get("authors",""), "journal": p.get("journal",""), "year": p.get("year","")} for pmid, p in papers.items()},
+                "papers": {
+                    pmid: {
+                        "title": p.get("title", ""),
+                        "abstract": p.get("abstract", ""),
+                        "authors": p.get("authors", ""),
+                        "journal": p.get("journal", ""),
+                        "year": p.get("year", "")
+                    } for pmid, p in included.items()
+                },
                 "pct": 100
             })
 
@@ -175,7 +200,6 @@ def export_pdf():
         as_attachment=True, download_name=filename)
 
 
-
 @app.route("/score", methods=["POST"])
 def score():
     data = request.get_json()
@@ -224,11 +248,13 @@ import json as _json
 from datetime import datetime
 SESSIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions.json")
 
+
 def load_sessions():
     try:
         return _json.load(open(SESSIONS_FILE))
     except:
         return []
+
 
 def save_session(entry):
     sessions = load_sessions()
@@ -236,9 +262,11 @@ def save_session(entry):
     sessions = sessions[:20]
     _json.dump(sessions, open(SESSIONS_FILE, "w"), indent=2)
 
+
 @app.route("/sessions", methods=["GET"])
 def get_sessions():
     return jsonify({"sessions": load_sessions()})
+
 
 @app.route("/sessions/save", methods=["POST"])
 def save_session_route():
@@ -273,6 +301,7 @@ def extract_table():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/followup", methods=["POST"])
 def followup():
     data = request.get_json()
@@ -298,10 +327,11 @@ def followup():
             f"Papers:\n{corpus}\n\n"
             f"Follow-up Question: {question}"
         )
-        response = llm.invoke(prompt)
+        response = llm_invoke_with_retry(llm, prompt)
         return jsonify({"answer": response.content})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True)
