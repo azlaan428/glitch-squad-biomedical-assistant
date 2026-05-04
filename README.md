@@ -1,8 +1,8 @@
 ---
 title: ARIA - AMD Biomedical Research Intelligence Assistant
 emoji: 🧬
-colorFrom: cyan
-colorTo: blue
+colorFrom: blue
+colorTo: indigo
 sdk: docker
 pinned: false
 ---
