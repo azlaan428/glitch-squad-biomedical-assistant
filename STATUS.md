@@ -1,11 +1,11 @@
 ﻿# ARIA Project Status
-_Last updated: May 3, 2026_
+_Last updated: May 4, 2026_
 
 ## What Was Built
 
 Multi-agent pipeline in agent/agent.py with 5 stages:
 
-1. Query Architect: generates 5 MeSH-optimised PubMed queries via Groq
+1. Query Architect: generates 5 MeSH-optimised PubMed queries via Qwen2.5-72B on AMD MI300X
 2. Literature Scout: fetches all queries sequentially with rate limiting
 3. PRISMA Filter: automatic inclusion/exclusion screening with one-line reasons, user can override any decision
 4. Evidence Synthesiser: structured synthesis with Background, Key Findings, Level of Evidence, Conflicting Evidence, Research Gaps, Clinical Implications
@@ -24,12 +24,14 @@ Additional features completed:
 * Follow-up Q&A: ask follow-up questions after synthesis, answered using already-fetched papers
 * Query refinement suggestions: 3 AI-generated follow-up research questions based on synthesis gaps
 * Session history: queries saved to sessions.json, reloadable from sidebar
-* Rate limit retry logic: automatic backoff on Groq 429 errors
+* Rate limit retry logic: automatic backoff on API errors
 * SSL patch for PubMed Entrez on corporate/university networks
 * Signature: Azlaan Mohammad 2026 in footer
 
-## UI Updates (May 3 2026)
+## UI Updates (May 4 2026)
 
+* Model badge updated to Qwen2.5-72B on AMD MI300X
+* Subtitle and footer updated to reflect AMD MI300X inference
 * PRISMA screening panel with cyan/red inclusion dots and override buttons
 * Follow-up Q&A input block appears after synthesis
 * Suggested follow-up queries panel with clickable buttons
@@ -44,13 +46,13 @@ Additional features completed:
 
 ## Tech Stack
 
-* LLM: Groq LLaMA-3.1-8B-Instant (migration to Llama 3.3 70B on AMD MI300X planned)
+* LLM: Qwen2.5-72B-Instruct on AMD MI300X via vLLM 0.17.1
 * Agent Framework: LangGraph + LangChain
 * Literature Retrieval: BioPython Entrez / PubMed NCBI
 * Web Framework: Flask with SSE streaming
 * PDF: ReportLab
 * Frontend: HTML, CSS, vanilla JS
-* Runtime: Windows 11, Python 3.11, RTX 3060 12GB
+* Runtime: Windows 11, Python 3.11, RTX 3060 12GB (local) + AMD MI300X 192GB (inference)
 
 ## API Endpoints
 
@@ -69,18 +71,18 @@ Additional features completed:
 
 ## Environment
 
-* GROQ_API_KEY set via $env:GROQ_API_KEY in PowerShell
+* VLLM_BASE_URL=http://165.245.141.245:8000/v1
+* VLLM_API_KEY=EMPTY
 * Python venv at ./venv
 * Start server: venv\Scripts\activate && python app.py
-* AMD MI300X credits available on lablab.ai (instance not yet spun up)
+* AMD MI300X instance: 165.245.141.245 (DigitalOcean ATL1, 192GB VRAM)
 
 ## What Remains Before May 11
 
-1. Spin up AMD MI300X instance and migrate inference to vLLM + Llama 3.3 70B
-2. Concept document for lablab.ai submission (window opens May 11)
-3. Demo video (under 3 minutes)
-4. LinkedIn post with #AMDDevHackathon
-5. Submit on lablab.ai
+1. Concept document for lablab.ai submission (window opens May 11)
+2. Demo video (under 3 minutes)
+3. LinkedIn post with #AMDDevHackathon
+4. Submit on lablab.ai
 
 ## GitHub
 
