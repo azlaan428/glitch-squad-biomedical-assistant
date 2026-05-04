@@ -883,7 +883,7 @@
         </div>
         <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.15em;color:#00f5ff;text-transform:uppercase;margin-bottom:6px;">AMD Developer Hackathon 2026 &mdash; Glitch Squad</div>
         <h1>Autonomous Research Intelligence Agent</h1>
-        <div class="subtitle">Multi-agent biomedical literature synthesis &middot; PubMed &middot; Groq LLaMA-3.1 &middot; by Azlaan Mohammad</div>
+        <div class="subtitle">Multi-agent biomedical literature synthesis &middot; PubMed &middot; Qwen2.5-72B on AMD MI300X &middot; by Azlaan Mohammad</div>
     </header>
 
     <div class="search-section">
@@ -906,9 +906,10 @@
             </div>
         </div>
         <div class="stage" id="stage1"><div class="stage-dot"></div>Query Architect &mdash; generating MeSH-optimised PubMed queries</div>
-        <div class="stage" id="stage2"><div class="stage-dot"></div>Literature Scout &mdash; fetching and deduplicating papers</div>
-        <div class="stage" id="stage3"><div class="stage-dot"></div>Evidence Synthesiser &mdash; building structured synthesis</div>
-        <div class="stage" id="stage4"><div class="stage-dot"></div>Citation Builder &mdash; formatting references</div>
+	<div class="stage" id="stage2"><div class="stage-dot"></div>Literature Scout &mdash; fetching and deduplicating papers</div>
+	<div class="stage" id="stage3"><div class="stage-dot"></div>PRISMA Filter &mdash; screening papers for relevance</div>
+	<div class="stage" id="stage4"><div class="stage-dot"></div>Evidence Synthesiser &mdash; building structured synthesis</div>
+	<div class="stage" id="stage5"><div class="stage-dot"></div>Citation Builder &mdash; formatting references</div>
     </div>
 
     <div class="error-box" id="errorBox"></div>
@@ -983,7 +984,7 @@
     </div>
 
     <footer>
-        <span>Powered by LangGraph &middot; Groq LLaMA-3.1 &middot; PubMed NCBI</span>
+        <span>Powered by LangGraph &middot; Qwen2.5-72B &middot; AMD MI300X &middot; PubMed NCBI</span>
         <span>AI-generated synthesis &mdash; verify against primary sources</span>
         <span style="color:var(--text-dim);font-family:var(--mono);font-size:10px;">Azlaan Mohammad &middot; 2026</span>
     </footer>
@@ -1016,7 +1017,7 @@ function parseSynthesis(text) {
 const STAGE_PCT = { 1: 10, 2: 35, 3: 70, 4: 90, 5: 100 };
 
 function setStage(n) {
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
         const el = document.getElementById("stage" + i);
         el.classList.remove("active", "done");
         if (i < n) el.classList.add("done");
@@ -1038,7 +1039,7 @@ function toggleCitations() {
 // ── Render Results ────────────────────────────────────────
 async function renderResults(data) {
     const meta = document.getElementById("metaBar");
-    meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">LLaMA-3.1-8B via Groq</div>`;
+    meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">Qwen2.5-72B on AMD MI300X</div>`;
     const sections = parseSynthesis(data.synthesis);
     const synthEl = document.getElementById("synthesis");
     synthEl.innerHTML = "";
