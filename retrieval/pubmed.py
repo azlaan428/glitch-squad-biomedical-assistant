@@ -87,3 +87,45 @@ if __name__ == "__main__":
         print(f"Journal: {r['journal']}")
         print(f"Year:    {r['year']}")
         print("-" * 60)
+
+def fetch_europepmc(query: str, max_results: int = 5) -> list:
+    import ssl, urllib.request, urllib.parse, json
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    params = urllib.parse.urlencode({
+        "query": query,
+        "resultType": "core",
+        "pageSize": max_results,
+        "format": "json",
+        "sort": "CITED desc"
+    })
+    url = "https://www.ebi.ac.uk/europepmc/webservices/rest/search?" + params
+    try:
+        with urllib.request.urlopen(url, context=ctx, timeout=20) as r:
+            data = json.loads(r.read())
+        results = []
+        for p in data.get("resultList", {}).get("result", []):
+            pmid = p.get("pmid", p.get("id", ""))
+            if not pmid:
+                continue
+            authors_list = []
+            for a in p.get("authorList", {}).get("author", []):
+                name = a.get("fullName", "")
+                if name:
+                    authors_list.append(name)
+            authors = ", ".join(authors_list[:3])
+            if len(authors_list) > 3:
+                authors += " et al."
+            results.append({
+                "pmid": str(pmid),
+                "title": p.get("title", "Title unavailable").rstrip("."),
+                "authors": authors or "Authors unavailable",
+                "journal": p.get("journalTitle", "Journal unavailable"),
+                "year": str(p.get("pubYear", "n.d.")),
+                "abstract": p.get("abstractText", "Abstract not available")
+            })
+        return results
+    except Exception as e:
+        print(f"[EuropePMC] fetch failed: {e}")
+        return []

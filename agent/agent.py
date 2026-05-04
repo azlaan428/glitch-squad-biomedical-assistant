@@ -64,13 +64,16 @@ def run_query_architect(user_question):
 
 
 def run_literature_scout(queries):
+    from retrieval.pubmed import fetch_europepmc
     all_papers = {}
-    def fetch_one(q):
-        return fetch_pubmed(q, max_results=5)
     import time
     for q in queries:
         time.sleep(0.4)
-        for r in fetch_one(q):
+        for r in fetch_pubmed(q, max_results=5):
+            if r["pmid"] not in all_papers:
+                all_papers[r["pmid"]] = r
+        time.sleep(0.4)
+        for r in fetch_europepmc(q, max_results=3):
             if r["pmid"] not in all_papers:
                 all_papers[r["pmid"]] = r
     return all_papers

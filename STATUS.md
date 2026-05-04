@@ -6,7 +6,7 @@ _Last updated: May 4, 2026_
 Multi-agent pipeline in agent/agent.py with 5 stages:
 
 1. Query Architect: generates 5 MeSH-optimised PubMed queries via Qwen2.5-72B on AMD MI300X
-2. Literature Scout: fetches all queries sequentially with rate limiting
+2. Literature Scout: fetches from PubMed and Europe PMC in parallel, deduplicates by PMID
 3. PRISMA Filter: automatic inclusion/exclusion screening with one-line reasons, user can override any decision
 4. Evidence Synthesiser: structured synthesis with Background, Key Findings, Level of Evidence, Conflicting Evidence, Research Gaps, Clinical Implications
 5. Citation Builder: formatted references with PMID, synthesis runs on PRISMA-included papers only
@@ -25,7 +25,7 @@ Additional features completed:
 * Query refinement suggestions: 3 AI-generated follow-up research questions based on synthesis gaps
 * Session history: queries saved to sessions.json, reloadable from sidebar
 * Rate limit retry logic: automatic backoff on API errors
-* SSL patch for PubMed Entrez on corporate/university networks
+* SSL patch for PubMed and Europe PMC Entrez on corporate/university networks
 * Signature: Azlaan Mohammad 2026 in footer
 
 ## UI Updates (May 4 2026)
@@ -48,7 +48,7 @@ Additional features completed:
 
 * LLM: Qwen2.5-72B-Instruct on AMD MI300X via vLLM 0.17.1
 * Agent Framework: LangGraph + LangChain
-* Literature Retrieval: BioPython Entrez / PubMed NCBI
+* Literature Retrieval: BioPython Entrez / PubMed NCBI + Europe PMC
 * Web Framework: Flask with SSE streaming
 * PDF: ReportLab
 * Frontend: HTML, CSS, vanilla JS
