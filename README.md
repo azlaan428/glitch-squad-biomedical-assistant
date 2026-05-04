@@ -1,3 +1,14 @@
+---
+title: ARIA - AMD Biomedical Research Intelligence Assistant
+emoji: 🧬
+colorFrom: cyan
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
+... your existing README content below ...
+
 # ARIA — Autonomous Research Intelligence Agent
 
 > Multi-agent biomedical literature synthesis · AMD Developer Hackathon 2026
