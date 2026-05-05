@@ -1,5 +1,5 @@
-ï»¿# ARIA Project Status
-_Last updated: May 4, 2026_
+# ARIA Project Status
+_Last updated: May 5, 2026_
 
 ## What Was Built
 
@@ -11,7 +11,7 @@ Multi-agent pipeline in agent/agent.py with 5 stages:
 4. Evidence Synthesiser: structured synthesis with Background, Key Findings, Level of Evidence, Conflicting Evidence, Research Gaps, Clinical Implications
 5. Citation Builder: formatted references with PMID, synthesis runs on PRISMA-included papers only
 
-Additional features completed:
+## Additional Features
 
 * SSE streaming: real-time 5-stage progress bar with percentage
 * PRISMA-style paper screening: automated include/exclude with rationale, user override buttons
@@ -26,23 +26,6 @@ Additional features completed:
 * Session history: queries saved to sessions.json, reloadable from sidebar
 * Rate limit retry logic: automatic backoff on API errors
 * SSL patch for PubMed and Europe PMC Entrez on corporate/university networks
-* Signature: Azlaan Mohammad 2026 in footer
-
-## UI Updates (May 4 2026)
-
-* Model badge updated to Qwen2.5-72B on AMD MI300X
-* Subtitle and footer updated to reflect AMD MI300X inference
-* PRISMA screening panel with cyan/red inclusion dots and override buttons
-* Follow-up Q&A input block appears after synthesis
-* Suggested follow-up queries panel with clickable buttons
-* Evidence table with real author surnames replacing placeholder text
-
-## UI Updates (Apr 29 2026)
-
-* Rebranded color scheme: ARIA Cyan (#00f5ff) replacing teal accent
-* New fonts: Inter (sans) + JetBrains Mono replacing IBM Plex
-* Animated hexagonal SVG logo with "A" monogram in header
-* Animated gradient mesh background replacing flat grid
 
 ## Tech Stack
 
@@ -56,38 +39,33 @@ Additional features completed:
 
 ## API Endpoints
 
-* GET  /                 â€” main UI
-* GET  /stream           â€” SSE pipeline stream
-* POST /query            â€” standard pipeline (fallback)
-* POST /score            â€” confidence scoring
-* POST /predict          â€” predictive model
-* POST /selective-review â€” focused literature review from selected papers
-* POST /extract-table    â€” evidence comparison table
-* POST /export-pdf       â€” PDF report download
-* POST /followup         â€” follow-up question against existing synthesis
-* POST /suggest-queries  â€” 3 AI-generated follow-up research questions
-* GET  /sessions         â€” load query history
-* POST /sessions/save    â€” save completed query
+* GET  /                 — main UI
+* GET  /stream           — SSE pipeline stream
+* POST /query            — standard pipeline (fallback)
+* POST /score            — confidence scoring
+* POST /predict          — predictive model
+* POST /selective-review — focused literature review from selected papers
+* POST /extract-table    — evidence comparison table
+* POST /export-pdf       — PDF report download
+* POST /followup         — follow-up question against existing synthesis
+* POST /suggest-queries  — 3 AI-generated follow-up research questions
+* GET  /sessions         — load query history
+* POST /sessions/save    — save completed query
 
 ## Environment
 
-* VLLM_BASE_URL=http://165.245.141.245:8000/v1
-* VLLM_API_KEY=EMPTY
+* VLLM_BASE_URL: set via HF Space environment variable
+* VLLM_API_KEY: EMPTY
 * Python venv at ./venv
 * Start server: venv\Scripts\activate && python app.py
-* AMD MI300X instance: 165.245.141.245 (DigitalOcean ATL1, 192GB VRAM)
+* AMD MI300X: DigitalOcean droplet, 192GB VRAM
 
-## What Remains Before May 11
+## Deployment
 
-1. Concept document for lablab.ai submission (window opens May 11)
-2. Demo video (under 3 minutes)
-3. LinkedIn post with #AMDDevHackathon
-4. Submit on lablab.ai
+* HF Space: https://huggingface.co/spaces/lablab-ai-amd-developer-hackathon/glitch-squad-biomedical-assistant
+* GitHub: https://github.com/azlaan428/glitch-squad-biomedical-assistant
 
-## GitHub
+## What Remains
 
-github.com/azlaan428/glitch-squad-biomedical-assistant
-
-## Deadline
-
-May 11 â€” lablab.ai submission window opens
+1. Demo video (under 5 minutes)
+2. Final lablab.ai submission
