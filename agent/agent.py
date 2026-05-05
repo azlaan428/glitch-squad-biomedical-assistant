@@ -9,12 +9,10 @@ from retrieval.pubmed import fetch_pubmed
 
 
 def get_llm():
-    from langchain_openai import ChatOpenAI
-    return ChatOpenAI(
-        model="Qwen/Qwen2.5-72B-Instruct",
+    return ChatGroq(
+        model="llama-3.1-8b-instant",
         temperature=0,
-        openai_api_key=os.environ.get("VLLM_API_KEY", "EMPTY"),
-        openai_api_base=os.environ.get("VLLM_BASE_URL", "http://localhost:8000/v1"),
+        api_key=os.environ.get("GROQ_API_KEY"),
     )
 
 def llm_invoke_with_retry(llm, prompt, max_retries=5):
