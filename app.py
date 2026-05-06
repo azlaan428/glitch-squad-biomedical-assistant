@@ -43,22 +43,26 @@ def stream():
     def generate():
         def emit(event, data):
             return "event: " + event + "\ndata: " + json.dumps(data) + "\n\n"
-
         try:
+            print("[STREAM] Pipeline started")                       # ADD
             # Stage 1
             yield emit("stage", {"stage": 1, "pct": 10})
+            print("[STREAM] Calling run_query_architect...")         # ADD
             queries = run_query_architect(user_query)
+            print(f"[STREAM] Queries returned: {queries}")          # ADD
             yield emit("queries", {"queries": queries, "pct": 25})
-
             # Stage 2
             yield emit("stage", {"stage": 2, "pct": 35})
+            print("[STREAM] Calling run_literature_scout...")        # ADD
             papers = run_literature_scout(queries)
+            print(f"[STREAM] Papers retrieved: {len(papers)}")      # ADD
             yield emit("papers", {"paper_count": len(papers), "pct": 50})
-
             # PRISMA filter
             yield emit("stage", {"stage": 3, "pct": 55})
+            print("[STREAM] Calling run_prisma_filter...")           # ADD
             from agent.agent import run_prisma_filter
             filtered = run_prisma_filter(user_query, papers)
+            print(f"[STREAM] PRISMA done, included: {len([p for p in filtered.values() if p['included']])}")  # ADD
             included = {pmid: p for pmid, p in filtered.items() if p["included"]}
             yield emit("prisma", {
                 "filtered": {
@@ -69,6 +73,7 @@ def stream():
                 "excluded_count": len(filtered) - len(included),
                 "pct": 65
             })
+            print("[STREAM] Sleeping 12s...")                        # ADD
             time.sleep(12)
 
             # Stage 4 - synthesise on included papers only

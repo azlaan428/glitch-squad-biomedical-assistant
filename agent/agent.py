@@ -9,10 +9,14 @@ from retrieval.pubmed import fetch_pubmed
 
 
 def get_llm():
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set in environment")
+    print(f"[ARIA] GROQ_API_KEY found, length={len(key)}")
     return ChatGroq(
         model="llama-3.1-8b-instant",
         temperature=0,
-        api_key=os.environ.get("GROQ_API_KEY"),
+        api_key=key,
     )
 
 def llm_invoke_with_retry(llm, prompt, max_retries=5):
