@@ -70,7 +70,7 @@ export GROQ_API_KEY=your_key_here
 ./run.sh
 ```
 
-Open **http://localhost:5000**
+Open https://huggingface.co/spaces/azlaan428/glitch-squad-biomedical-assistant
 
 ## Disclaimer
 
