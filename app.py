@@ -267,7 +267,73 @@ def predict():
     try:
         from agent.agent import run_predictive_model
         prediction = run_predictive_model(question, synthesis)
+        print(f"[PREDICT] Response: {prediction[:200]}")
         return jsonify({"prediction": prediction})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/citation-ghost-check", methods=["POST"])
+def citation_ghost_check():
+    data = request.get_json()
+    claims = data.get("claims", [])
+    if not claims:
+        return jsonify({"error": "No claims provided"}), 400
+    try:
+        from agent.citation_ghost_detector import run_citation_ghost_detector
+        results = run_citation_ghost_detector(claims)
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/methodology-drift-check", methods=["POST"])
+def methodology_drift_check():
+    data = request.get_json()
+    papers = data.get("papers", [])
+    if not papers:
+        return jsonify({"error": "No papers provided"}), 400
+    try:
+        from agent.methodology_drift_tracker import run_methodology_drift_tracker
+        results = run_methodology_drift_tracker(papers)
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/confidence-calibration-check", methods=["POST"])
+def confidence_calibration_check():
+    data = request.get_json()
+    items = data.get("items", [])
+    if not items:
+        return jsonify({"error": "No items provided"}), 400
+    try:
+        from agent.confidence_calibration_check import run_confidence_calibration_check
+        results = run_confidence_calibration_check(items)
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/cross-paper-contradiction-check", methods=["POST"])
+def cross_paper_contradiction_check():
+    data = request.get_json()
+    pairs = data.get("pairs", [])
+    if not pairs:
+        return jsonify({"error": "No pairs provided"}), 400
+    try:
+        from agent.cross_paper_contradiction_finder import run_cross_paper_contradiction_finder
+        results = run_cross_paper_contradiction_finder(pairs)
+        return jsonify({"results": results})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/reproducibility-score", methods=["POST"])
+def reproducibility_score():
+    data = request.get_json()
+    papers = data.get("papers", [])
+    if not papers:
+        return jsonify({"error": "No papers provided"}), 400
+    try:
+        from agent.reproducibility_score import run_reproducibility_score
+        results = run_reproducibility_score(papers)
+        return jsonify({"results": results})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

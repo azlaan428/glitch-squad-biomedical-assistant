@@ -1,0 +1,100 @@
+import json
+
+try:
+    from citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
+except ImportError:
+    from agent.citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
+
+
+PROMPT_TEMPLATE = """You are a rigorous cross-paper consistency auditor for biomedical research.
+You will be given a finding from Paper A and a finding from Paper B, both addressing the same topic/question.
+
+Decide how the two findings relate to each other.
+
+Categories:
+- "consistent": the findings agree — same direction of effect, and any differences in magnitude or population are compatible/complementary rather than conflicting.
+- "partial_conflict": the findings are in tension but not flatly opposed — e.g. same direction of effect but substantially different magnitude, one reaches statistical significance and the other doesn't, or the effect holds in one subgroup/setting but not clearly in the other.
+- "direct_contradiction": the findings flatly oppose each other — opposite direction of effect on the same outcome in comparable populations, or one confirms an association/mechanism that the other explicitly refutes.
+
+Return ONLY valid JSON, no markdown, no explanation outside the JSON:
+{{
+  "flag": "consistent" | "partial_conflict" | "direct_contradiction",
+  "confidence": <integer 0-100, your confidence in this flag>,
+  "explanation": "<one to two sentences, cite the specific point of agreement or conflict>"
+}}
+
+Paper A ({paper_a}): {finding_a}
+
+Paper B ({paper_b}): {finding_b}
+"""
+
+
+def check_contradiction(paper_a, finding_a, paper_b, finding_b, llm=None):
+    """
+    paper_a / paper_b: short labels identifying each paper (e.g. "Smith et al. 2019").
+    finding_a / finding_b: the stated finding/claim from each paper on the shared topic.
+
+    Returns: {"flag": str, "confidence": int, "explanation": str}
+    """
+    llm = llm or get_groq_llm()
+    prompt = PROMPT_TEMPLATE.format(paper_a=paper_a, finding_a=finding_a, paper_b=paper_b, finding_b=finding_b)
+    response = llm_invoke_with_retry(llm, prompt)
+    text = response.content.strip()
+    text = text.replace("```json", "").replace("```", "").strip()
+    result = json.loads(text)
+    if result.get("flag") not in ("consistent", "partial_conflict", "direct_contradiction"):
+        raise ValueError(f"Unexpected flag from model: {result.get('flag')!r}")
+    result["confidence"] = int(result["confidence"])
+    return result
+
+
+def run_cross_paper_contradiction_finder(pairs):
+    """
+    pairs: list of {"paper_a": str, "finding_a": str, "paper_b": str, "finding_b": str}
+    Returns the same list with "flag", "confidence", "explanation" attached to each item.
+    """
+    llm = get_groq_llm()
+    results = []
+    for item in pairs:
+        try:
+            verdict = check_contradiction(
+                item["paper_a"], item["finding_a"], item["paper_b"], item["finding_b"], llm=llm
+            )
+        except Exception as e:
+            verdict = {"flag": "error", "confidence": 0, "explanation": str(e)}
+        results.append({**item, **verdict})
+    return results
+
+
+if __name__ == "__main__":
+    sample_pairs = [
+        {
+            # consistent: similar direction and magnitude in similar populations
+            "paper_a": "Smith et al., 2018",
+            "finding_a": "Statin therapy reduced major cardiovascular events by 25% (HR 0.75) in a randomized trial of 10,000 adults with elevated LDL cholesterol.",
+            "paper_b": "Jones et al., 2020",
+            "finding_b": "In a separate randomized trial of 8,500 adults with hyperlipidemia, statin therapy reduced major cardiovascular events by 22% (HR 0.78).",
+        },
+        {
+            # partial_conflict: same direction, but magnitude/significance disagree
+            "paper_a": "Nguyen et al., 2015",
+            "finding_a": "In postmenopausal women, hormone replacement therapy significantly reduced hip fracture risk by 34% (p=0.01) in a 5-year randomized trial.",
+            "paper_b": "Patel et al., 2017",
+            "finding_b": "In a similarly designed trial of postmenopausal women, hormone replacement therapy was associated with a 10% reduction in hip fracture risk, but this did not reach statistical significance (p=0.22).",
+        },
+        {
+            # direct_contradiction: opposite direction of effect on the same outcome (classic HRT/CHD case)
+            "paper_a": "Stampfer et al., 1991 (observational cohort)",
+            "finding_a": "Hormone replacement therapy was associated with a 30% reduction in the risk of coronary heart disease in postmenopausal women (observational cohort, n=50,000).",
+            "paper_b": "Women's Health Initiative, 2002 (randomized controlled trial)",
+            "finding_b": "In a randomized controlled trial of postmenopausal women, hormone replacement therapy significantly increased the risk of coronary heart disease (HR 1.29, 95% CI 1.02-1.63).",
+        },
+    ]
+
+    results = run_cross_paper_contradiction_finder(sample_pairs)
+    for i, r in enumerate(results, 1):
+        print(f"\n--- Sample {i} ---")
+        print(f"Paper A ({r['paper_a']}): {r['finding_a'][:100]}...")
+        print(f"Paper B ({r['paper_b']}): {r['finding_b'][:100]}...")
+        print(f"Flag: {r['flag']} (confidence: {r['confidence']})")
+        print(f"Explanation: {r['explanation']}")
