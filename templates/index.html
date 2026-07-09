@@ -1868,6 +1868,15 @@ async function callAuditRoute(url, bodyObj, arr) {
     }
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function staggeredAuditRoute(url, bodyObj, arr, startDelayMs) {
+    if (startDelayMs) await delay(startDelayMs);
+    return callAuditRoute(url, bodyObj, arr);
+}
+
 function esc(s) {
     const d = document.createElement('div');
     d.textContent = s == null ? '' : String(s);
@@ -2005,13 +2014,17 @@ async function runIntegrityAudit() {
 
     const { claims, methodologyPapers, calibrationItems, reproPapers, pairs } = buildAuditPayloads();
 
+    // Stagger the 5 route calls' start times so they don't all hit Groq's
+    // rate limit in the same instant — each still runs concurrently with
+    // the others, just offset by STAGGER_MS from the previous one.
+    const STAGGER_MS = 1500;
     try {
         const [ghost, drift, calibration, contradiction, repro] = await Promise.all([
-            callAuditRoute('/citation-ghost-check', { claims }, claims),
-            callAuditRoute('/methodology-drift-check', { papers: methodologyPapers }, methodologyPapers),
-            callAuditRoute('/confidence-calibration-check', { items: calibrationItems }, calibrationItems),
-            callAuditRoute('/cross-paper-contradiction-check', { pairs }, pairs),
-            callAuditRoute('/reproducibility-score', { papers: reproPapers }, reproPapers),
+            staggeredAuditRoute('/citation-ghost-check', { claims }, claims, 0 * STAGGER_MS),
+            staggeredAuditRoute('/methodology-drift-check', { papers: methodologyPapers }, methodologyPapers, 1 * STAGGER_MS),
+            staggeredAuditRoute('/confidence-calibration-check', { items: calibrationItems }, calibrationItems, 2 * STAGGER_MS),
+            staggeredAuditRoute('/cross-paper-contradiction-check', { pairs }, pairs, 3 * STAGGER_MS),
+            staggeredAuditRoute('/reproducibility-score', { papers: reproPapers }, reproPapers, 4 * STAGGER_MS),
         ]);
         renderAuditResults({ ghost, drift, calibration, contradiction, repro });
     } catch (e) {

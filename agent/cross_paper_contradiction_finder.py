@@ -1,4 +1,5 @@
 import json
+import time
 
 try:
     from citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
@@ -60,7 +61,9 @@ def run_cross_paper_contradiction_finder(pairs):
     """
     llm = get_groq_llm()
     results = []
-    for item in pairs:
+    for i, item in enumerate(pairs):
+        if i > 0:
+            time.sleep(1.5)
         try:
             verdict = check_contradiction(
                 item["paper_a"], item["finding_a"], item["paper_b"], item["finding_b"], llm=llm

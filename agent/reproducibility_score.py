@@ -1,4 +1,5 @@
 import json
+import time
 
 try:
     from citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
@@ -75,7 +76,9 @@ def run_reproducibility_score(papers):
     """
     llm = get_groq_llm()
     results = []
-    for item in papers:
+    for i, item in enumerate(papers):
+        if i > 0:
+            time.sleep(1.5)
         try:
             verdict = check_reproducibility(item["methodology"], llm=llm)
         except Exception as e:

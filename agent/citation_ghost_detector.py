@@ -84,7 +84,9 @@ def run_citation_ghost_detector(claims):
     """
     llm = get_groq_llm()
     results = []
-    for item in claims:
+    for i, item in enumerate(claims):
+        if i > 0:
+            time.sleep(1.5)
         try:
             verdict = check_citation(item["claim"], item["citation"], item["source_text"], llm=llm)
         except Exception as e:

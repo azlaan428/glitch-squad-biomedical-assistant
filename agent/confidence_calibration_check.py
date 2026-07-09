@@ -1,4 +1,5 @@
 import json
+import time
 
 try:
     from citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
@@ -61,7 +62,9 @@ def run_confidence_calibration_check(items):
     """
     llm = get_groq_llm()
     results = []
-    for item in items:
+    for i, item in enumerate(items):
+        if i > 0:
+            time.sleep(1.5)
         try:
             verdict = check_calibration(item["claim"], item["data"], llm=llm)
         except Exception as e:

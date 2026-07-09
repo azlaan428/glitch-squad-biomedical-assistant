@@ -1,4 +1,5 @@
 import json
+import time
 
 try:
     from citation_ghost_detector import get_groq_llm, llm_invoke_with_retry
@@ -63,7 +64,9 @@ def run_methodology_drift_tracker(papers):
     """
     llm = get_groq_llm()
     results_out = []
-    for item in papers:
+    for i, item in enumerate(papers):
+        if i > 0:
+            time.sleep(1.5)
         try:
             verdict = check_methodology_drift(item["methodology"], item["results"], llm=llm)
         except Exception as e:
