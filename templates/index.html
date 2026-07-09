@@ -819,6 +819,212 @@
             margin-bottom: 3px;
         }
 
+        button#auditBtn { display: none; }
+        button#auditBtn.visible { display: inline-block; }
+        button#auditBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .audit-block {
+            display: none;
+            margin-bottom: 32px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .audit-block.visible { display: block; }
+
+        .audit-header {
+            background: var(--surface);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .audit-header > span:first-child {
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .audit-header-sub {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .audit-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: #0a0f18;
+        }
+
+        .audit-tab {
+            flex: 1;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        .audit-tab:hover { color: var(--text); }
+
+        .audit-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .audit-body { padding: 16px; }
+
+        .audit-panel { display: none; }
+        .audit-panel.active { display: block; }
+
+        .audit-subsection { margin-bottom: 20px; }
+        .audit-subsection:last-child { margin-bottom: 0; }
+
+        .audit-subsection-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .audit-count {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: 2px;
+            padding: 1px 6px;
+        }
+
+        .audit-card {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            background: #0a0f18;
+        }
+
+        .audit-card:last-child { margin-bottom: 0; }
+
+        .audit-card-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .audit-card-title {
+            font-family: var(--sans);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-bright);
+        }
+
+        .audit-confidence {
+            margin-left: auto;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .audit-flag-badge {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            padding: 2px 8px;
+            border-radius: 2px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .audit-green { background: #00e5a020; color: #00e5a0; border: 1px solid #00e5a0; }
+        .audit-yellow { background: #f0b42920; color: #f0b429; border: 1px solid #f0b429; }
+        .audit-red { background: #ff4d6d20; color: #ff4d6d; border: 1px solid #ff4d6d; }
+        .audit-gray { background: #5a6a7a20; color: #5a6a7a; border: 1px solid #5a6a7a; }
+
+        .audit-card-claim {
+            font-size: 12px;
+            font-style: italic;
+            color: var(--text-dim);
+            line-height: 1.6;
+            margin-bottom: 6px;
+        }
+
+        .audit-card-body {
+            font-size: 13px;
+            line-height: 1.65;
+            color: var(--text);
+        }
+
+        .audit-repro-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 14px;
+            margin-top: 10px;
+        }
+
+        .audit-repro-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 0.04em;
+            color: var(--text-dim);
+        }
+
+        .audit-repro-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            flex-shrink: 0;
+        }
+
+        .audit-repro-item.present { color: #00e5a0; }
+        .audit-repro-item.present .audit-repro-dot { background: #00e5a0; }
+        .audit-repro-item.missing { color: #ff4d6d; }
+        .audit-repro-item.missing .audit-repro-dot { background: #ff4d6d; }
+
+        .audit-empty, .audit-error {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            padding: 8px 0;
+        }
+
+        .audit-error { color: var(--red); }
+
+        .audit-loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text-dim);
+            padding: 8px 0;
+        }
+
         @keyframes hexTrace {
             0% { stroke-dashoffset: 200; opacity: 0.3; }
             50% { opacity: 1; }
@@ -915,8 +1121,21 @@
         <div class="meta-bar" id="metaBar"></div>
         <div class="synthesis" id="synthesis"></div>
 
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:12px;">
+            <button id="auditBtn" onclick="runIntegrityAudit()" style="background:transparent;border:1px solid #00e5a0;color:#00e5a0;padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Run Integrity Audit</button>
             <button id="exportBtn" onclick="exportPDF()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Export PDF</button>
+        </div>
+
+        <div class="audit-block" id="auditBlock">
+            <div class="audit-header">
+                <span>Integrity Audit</span>
+                <span class="audit-header-sub" id="auditHeaderSub">Citation ghosts &middot; methodology drift &middot; calibration &middot; contradictions &middot; reproducibility</span>
+            </div>
+            <div class="audit-tabs">
+                <button class="audit-tab active" id="auditTabInternal" onclick="switchAuditTab('internal')">Internal Consistency</button>
+                <button class="audit-tab" id="auditTabExternal" onclick="switchAuditTab('external')">External Validity</button>
+            </div>
+            <div class="audit-body" id="auditBody"></div>
         </div>
 
         <div class="followup-block" id="followupBlock">
@@ -1093,6 +1312,12 @@ async function renderResults(data) {
     document.getElementById("followupAnswer").innerHTML = "";
     document.getElementById("followupInput").value = "";
 
+    document.getElementById("auditBtn").classList.add("visible");
+    document.getElementById("auditBtn").disabled = false;
+    document.getElementById("auditBtn").textContent = "Run Integrity Audit";
+    document.getElementById("auditBlock").classList.remove("visible");
+    document.getElementById("auditBody").innerHTML = "";
+
     if (window._pendingPrismaBlock) {
         const citBlock = document.querySelector('.citations-block');
         if (citBlock) citBlock.parentElement.insertBefore(window._pendingPrismaBlock, citBlock);
@@ -1118,6 +1343,9 @@ async function submitQuery() {
     document.getElementById("tableBlock").classList.remove("visible");
     document.getElementById("suggestionsBlock").classList.remove("visible");
     document.getElementById("suggestionsList").innerHTML = "";
+    document.getElementById("auditBtn").classList.remove("visible");
+    document.getElementById("auditBlock").classList.remove("visible");
+    document.getElementById("auditBody").innerHTML = "";
     document.getElementById("pipeline").classList.add("visible");
     setStage(1);
     updateProgress(5);
@@ -1457,6 +1685,284 @@ async function buildTable(question, synthesis, papers) {
         document.getElementById('tableBody').innerHTML = t.rows.map(row => '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>').join('');
         document.getElementById('tableBlock').classList.add('visible');
     } catch(e) { console.warn('Table extraction failed:', e); }
+}
+
+/* ---------------------------------------------------------------------
+ * Integrity Audit
+ * Reuses claims/papers already in `lastResult` (no refetching from
+ * PubMed or the synthesis pipeline) to build inputs for the 5 audit
+ * routes, then runs them in parallel and renders the verdicts.
+ * ------------------------------------------------------------------- */
+
+function splitAbstractSections(abstract) {
+    const headerRe = /\b(BACKGROUND|OBJECTIVES?|METHODS?|METHODOLOGY|RESULTS?|CONCLUSIONS?|DISCUSSION)\s*:\s*/gi;
+    const parts = [];
+    let match, lastIndex = 0, lastLabel = null;
+    while ((match = headerRe.exec(abstract)) !== null) {
+        if (lastLabel) parts.push({ label: lastLabel, text: abstract.slice(lastIndex, match.index).trim() });
+        lastLabel = match[1].toUpperCase();
+        lastIndex = headerRe.lastIndex;
+    }
+    if (lastLabel) parts.push({ label: lastLabel, text: abstract.slice(lastIndex).trim() });
+    const sections = {};
+    parts.forEach(p => {
+        if (/^METHOD/.test(p.label)) sections.methods = (sections.methods ? sections.methods + ' ' : '') + p.text;
+        else if (/^RESULT/.test(p.label)) sections.results = (sections.results ? sections.results + ' ' : '') + p.text;
+        else if (/^CONCLUSION/.test(p.label)) sections.conclusion = (sections.conclusion ? sections.conclusion + ' ' : '') + p.text;
+    });
+    return sections;
+}
+
+function extractMethodologyResults(paper) {
+    const abstract = paper.abstract || '';
+    const sections = splitAbstractSections(abstract);
+    if (sections.methods && sections.results) {
+        return { methodology: sections.methods, results: sections.results };
+    }
+    const mid = Math.floor(abstract.length / 2);
+    return {
+        methodology: sections.methods || abstract.slice(0, mid) || abstract,
+        results: sections.results || abstract.slice(mid) || abstract
+    };
+}
+
+function extractFinding(paper) {
+    const sections = splitAbstractSections(paper.abstract || '');
+    if (sections.conclusion) return sections.conclusion;
+    if (sections.results) return sections.results;
+    const sentences = (paper.abstract || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+    return sentences.slice(-2).join(' ') || paper.abstract || '';
+}
+
+function extractSynthesisClaims(papersMap, maxClaims) {
+    const sections = parseSynthesis((lastResult && lastResult.synthesis) || '');
+    const text = ['Key Findings', 'Conflicting Evidence', 'Level of Evidence', 'Clinical Implications']
+        .map(k => sections[k]).filter(Boolean).join(' ');
+    const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+    const claims = [];
+    const seen = new Set();
+    sentences.forEach(sentence => {
+        const matches = [...sentence.matchAll(/PMID:?\s*(\d+)/gi)];
+        matches.forEach(m => {
+            const pmid = m[1];
+            const paper = papersMap[pmid];
+            const key = pmid + '|' + sentence;
+            if (paper && paper.abstract && !seen.has(key) && claims.length < maxClaims) {
+                seen.add(key);
+                claims.push({ claim: sentence, citation: 'PMID ' + pmid, source_text: paper.abstract, pmid, paper_title: paper.title });
+            }
+        });
+    });
+    return claims;
+}
+
+function buildAuditPayloads() {
+    const papersMap = (lastResult && lastResult.papers) || {};
+    const papersArr = Object.entries(papersMap).slice(0, 6);
+
+    const claims = extractSynthesisClaims(papersMap, 8);
+
+    const methodologyPapers = papersArr
+        .map(([pmid, p]) => {
+            const mr = extractMethodologyResults(p);
+            return { pmid, title: p.title, methodology: mr.methodology, results: mr.results };
+        })
+        .filter(p => p.methodology && p.results);
+
+    const reproPapers = papersArr
+        .map(([pmid, p]) => {
+            const mr = extractMethodologyResults(p);
+            return { pmid, title: p.title, methodology: mr.methodology };
+        })
+        .filter(p => p.methodology);
+
+    const calibrationItems = claims.map(c => ({ claim: c.claim, data: c.source_text, pmid: c.pmid, paper_title: c.paper_title }));
+
+    const findingsArr = papersArr
+        .map(([pmid, p]) => ({
+            pmid,
+            label: (p.authors ? p.authors.split(',')[0] : 'PMID ' + pmid) + ' (' + (p.year || 'n.d.') + ')',
+            finding: extractFinding(p)
+        }))
+        .filter(f => f.finding);
+
+    const pairs = [];
+    for (let i = 0; i < findingsArr.length && pairs.length < 6; i++) {
+        for (let j = i + 1; j < findingsArr.length && pairs.length < 6; j++) {
+            pairs.push({
+                paper_a: findingsArr[i].label, finding_a: findingsArr[i].finding, pmid_a: findingsArr[i].pmid,
+                paper_b: findingsArr[j].label, finding_b: findingsArr[j].finding, pmid_b: findingsArr[j].pmid
+            });
+        }
+    }
+
+    return { claims, methodologyPapers, calibrationItems, reproPapers, pairs };
+}
+
+async function callAuditRoute(url, bodyObj, arr) {
+    if (!arr || arr.length === 0) return { results: [], skipped: true };
+    try {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj) });
+        const data = await res.json();
+        if (data.error) return { results: [], error: data.error };
+        return { results: data.results || [] };
+    } catch (e) {
+        return { results: [], error: e.message };
+    }
+}
+
+function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+}
+
+function truncateText(s, n) {
+    if (!s) return '';
+    return s.length > n ? s.slice(0, n).trim() + '…' : s;
+}
+
+function humanizeFlag(flag) {
+    if (!flag) return 'Unknown';
+    return flag.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function auditFlagBadgeClass(flag) {
+    const map = {
+        supported: 'audit-green', consistent: 'audit-green', calibrated: 'audit-green',
+        partial: 'audit-yellow', minor_drift: 'audit-yellow', partial_conflict: 'audit-yellow', understated: 'audit-yellow',
+        ghost: 'audit-red', major_drift: 'audit-red', direct_contradiction: 'audit-red', overstated: 'audit-red',
+    };
+    return map[flag] || 'audit-gray';
+}
+
+function auditScoreBadgeClass(score) {
+    if (score >= 80) return 'audit-green';
+    if (score >= 40) return 'audit-yellow';
+    return 'audit-red';
+}
+
+function auditCardShell(badgeHtml, titleText, confidence, claimText, bodyText, extraHtml) {
+    return `<div class="audit-card">
+        <div class="audit-card-top">
+            ${badgeHtml}
+            <span class="audit-card-title">${esc(titleText)}</span>
+            ${confidence != null ? `<span class="audit-confidence">${esc(confidence)}% conf.</span>` : ''}
+        </div>
+        ${claimText ? `<div class="audit-card-claim">&ldquo;${esc(truncateText(claimText, 220))}&rdquo;</div>` : ''}
+        <div class="audit-card-body">${esc(bodyText || '')}</div>
+        ${extraHtml || ''}
+    </div>`;
+}
+
+function renderCitationGhostCards(items) {
+    if (!items.length) return '<div class="audit-empty">No inline PMID-cited claims were found in the synthesis to audit.</div>';
+    return items.map(r => auditCardShell(
+        `<span class="audit-flag-badge ${auditFlagBadgeClass(r.flag)}">${humanizeFlag(r.flag)}</span>`,
+        r.paper_title ? truncateText(r.paper_title, 60) : ('PMID ' + r.pmid),
+        r.confidence, r.claim, r.explanation
+    )).join('');
+}
+
+function renderDriftCards(items) {
+    if (!items.length) return '<div class="audit-empty">No methodology/results text available to audit.</div>';
+    return items.map(r => auditCardShell(
+        `<span class="audit-flag-badge ${auditFlagBadgeClass(r.flag)}">${humanizeFlag(r.flag)}</span>`,
+        r.title ? truncateText(r.title, 60) : ('PMID ' + r.pmid),
+        r.confidence, null, r.explanation
+    )).join('');
+}
+
+function renderCalibrationCards(items) {
+    if (!items.length) return '<div class="audit-empty">No inline PMID-cited claims were found in the synthesis to audit.</div>';
+    return items.map(r => auditCardShell(
+        `<span class="audit-flag-badge ${auditFlagBadgeClass(r.flag)}">${humanizeFlag(r.flag)}</span>`,
+        r.paper_title ? truncateText(r.paper_title, 60) : ('PMID ' + r.pmid),
+        r.confidence, r.claim, r.explanation
+    )).join('');
+}
+
+function renderContradictionCards(items) {
+    if (!items.length) return '<div class="audit-empty">Not enough distinct papers with extractable findings to compare.</div>';
+    return items.map(r => auditCardShell(
+        `<span class="audit-flag-badge ${auditFlagBadgeClass(r.flag)}">${humanizeFlag(r.flag)}</span>`,
+        r.paper_a + ' ↔ ' + r.paper_b,
+        r.confidence, null, r.explanation
+    )).join('');
+}
+
+function renderReproCards(items) {
+    if (!items.length) return '<div class="audit-empty">No methodology text available to audit.</div>';
+    return items.map(r => {
+        const grid = `<div class="audit-repro-grid">${Object.entries(r.breakdown || {}).map(([k, v]) =>
+            `<div class="audit-repro-item ${v.present ? 'present' : 'missing'}"><span class="audit-repro-dot"></span>${esc(humanizeFlag(k))}</div>`
+        ).join('')}</div>`;
+        return auditCardShell(
+            `<span class="audit-flag-badge ${auditScoreBadgeClass(r.score)}">${r.score}/100</span>`,
+            r.title ? truncateText(r.title, 60) : ('PMID ' + r.pmid),
+            null, null, r.explanation, grid
+        );
+    }).join('');
+}
+
+function auditSectionBlock(label, resultObj, renderFn) {
+    if (resultObj.error) {
+        return `<div class="audit-subsection"><div class="audit-subsection-title">${label}</div><div class="audit-error">Check failed: ${esc(resultObj.error)}</div></div>`;
+    }
+    return `<div class="audit-subsection"><div class="audit-subsection-title">${label} <span class="audit-count">${resultObj.results.length}</span></div>${renderFn(resultObj.results)}</div>`;
+}
+
+function renderAuditResults(r) {
+    const internal = auditSectionBlock('Methodology Drift', r.drift, renderDriftCards) +
+                      auditSectionBlock('Confidence Calibration', r.calibration, renderCalibrationCards);
+    const external = auditSectionBlock('Citation Ghost Check', r.ghost, renderCitationGhostCards) +
+                      auditSectionBlock('Cross-Paper Contradiction', r.contradiction, renderContradictionCards) +
+                      auditSectionBlock('Reproducibility Score', r.repro, renderReproCards);
+
+    document.getElementById('auditBody').innerHTML =
+        `<div class="audit-panel active" id="auditPanelInternal">${internal}</div>` +
+        `<div class="audit-panel" id="auditPanelExternal">${external}</div>`;
+
+    switchAuditTab('internal');
+}
+
+function switchAuditTab(tab) {
+    document.getElementById('auditTabInternal').classList.toggle('active', tab === 'internal');
+    document.getElementById('auditTabExternal').classList.toggle('active', tab === 'external');
+    const pi = document.getElementById('auditPanelInternal');
+    const pe = document.getElementById('auditPanelExternal');
+    if (pi) pi.classList.toggle('active', tab === 'internal');
+    if (pe) pe.classList.toggle('active', tab === 'external');
+}
+
+async function runIntegrityAudit() {
+    if (!lastResult) return;
+    const btn = document.getElementById('auditBtn');
+    const block = document.getElementById('auditBlock');
+    const body = document.getElementById('auditBody');
+
+    btn.disabled = true;
+    btn.textContent = 'Running Audit...';
+    block.classList.add('visible');
+    body.innerHTML = '<div class="audit-loading"><span class="suggestions-loading"></span>Running 5 integrity checks in parallel&hellip;</div>';
+
+    const { claims, methodologyPapers, calibrationItems, reproPapers, pairs } = buildAuditPayloads();
+
+    try {
+        const [ghost, drift, calibration, contradiction, repro] = await Promise.all([
+            callAuditRoute('/citation-ghost-check', { claims }, claims),
+            callAuditRoute('/methodology-drift-check', { papers: methodologyPapers }, methodologyPapers),
+            callAuditRoute('/confidence-calibration-check', { items: calibrationItems }, calibrationItems),
+            callAuditRoute('/cross-paper-contradiction-check', { pairs }, pairs),
+            callAuditRoute('/reproducibility-score', { papers: reproPapers }, reproPapers),
+        ]);
+        renderAuditResults({ ghost, drift, calibration, contradiction, repro });
+    } catch (e) {
+        body.innerHTML = '<div class="audit-error">Audit failed: ' + esc(e.message) + '</div>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Run Integrity Audit';
+    }
 }
 </script>
 </body>
