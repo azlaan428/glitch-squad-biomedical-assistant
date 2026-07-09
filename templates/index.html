@@ -245,6 +245,68 @@
         .results { display: none; }
         .results.visible { display: block; }
 
+        /* ===================================================================
+         * Result shell: persistent toolbar + side-panel tab layout.
+         * Mobile-first: nav is a horizontal top tab bar; the desktop
+         * override below turns it into a vertical left-side panel.
+         * =================================================================== */
+        .result-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .result-toolbar .meta-bar { margin-bottom: 0; flex: 1; }
+
+        .side-tab-layout {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+
+        .side-tab-nav {
+            display: flex;
+            overflow-x: auto;
+            background: #0a0f18;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .side-tab-btn {
+            flex: 1 0 auto;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 12px 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+        }
+
+        .side-tab-btn:hover { color: var(--text); }
+
+        .side-tab-btn.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .side-tab-content { padding: 18px; min-width: 0; }
+
+        .side-tab-panel { display: none; }
+        .side-tab-panel.active { display: block; }
+
         .meta-bar {
             display: flex;
             gap: 16px;
@@ -1107,6 +1169,32 @@
             table.data-table td {
                 padding: 12px 18px;
             }
+
+            /* Side tabs: vertical left-side panel instead of a top tab bar */
+            .side-tab-layout { flex-direction: row; align-items: stretch; }
+
+            .side-tab-nav {
+                flex-direction: column;
+                width: 200px;
+                flex-shrink: 0;
+                overflow-x: visible;
+                border-bottom: none;
+                border-right: 1px solid var(--border);
+            }
+
+            .side-tab-btn {
+                text-align: left;
+                border-bottom: none;
+                border-left: 2px solid transparent;
+                padding: 14px 20px;
+            }
+
+            .side-tab-btn.active {
+                border-left-color: var(--accent);
+                border-bottom-color: transparent;
+            }
+
+            .side-tab-content { flex: 1; padding: 24px 28px; }
         }
     </style>
 </head>
@@ -1175,84 +1263,112 @@
     <div class="error-box" id="errorBox"></div>
 
     <div class="results" id="results">
-        <div class="meta-bar" id="metaBar"></div>
-        <div class="synthesis" id="synthesis"></div>
-
-        <div style="display:flex;justify-content:flex-end;gap:10px;margin-bottom:12px;">
-            <button id="auditBtn" onclick="runIntegrityAudit()" style="background:transparent;border:1px solid #00e5a0;color:#00e5a0;padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Run Integrity Audit</button>
-            <button id="exportBtn" onclick="exportPDF()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Export PDF</button>
+        <div class="result-toolbar">
+            <div class="meta-bar" id="metaBar"></div>
+            <button id="exportBtn" onclick="exportPDF()" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;flex-shrink:0;">Export PDF</button>
         </div>
 
-        <div class="audit-block" id="auditBlock">
-            <div class="audit-header">
-                <span>Integrity Audit</span>
-                <span class="audit-header-sub" id="auditHeaderSub">Citation ghosts &middot; methodology drift &middot; calibration &middot; contradictions &middot; reproducibility</span>
+        <div class="side-tab-layout">
+            <div class="side-tab-nav">
+                <button class="side-tab-btn active" id="sideTabBtnMain" onclick="switchSideTab('main')">Main</button>
+                <button class="side-tab-btn" id="sideTabBtnAudit" onclick="switchSideTab('audit')">Integrity Audit</button>
+                <button class="side-tab-btn" id="sideTabBtnPrisma" onclick="switchSideTab('prisma')">PRISMA</button>
+                <button class="side-tab-btn" id="sideTabBtnReferences" onclick="switchSideTab('references')">References</button>
+                <button class="side-tab-btn" id="sideTabBtnComparison" onclick="switchSideTab('comparison')">Comparison</button>
+                <button class="side-tab-btn" id="sideTabBtnFollowup" onclick="switchSideTab('followup')">Follow-up</button>
             </div>
-            <div class="audit-tabs">
-                <button class="audit-tab active" id="auditTabInternal" onclick="switchAuditTab('internal')">Internal Consistency</button>
-                <button class="audit-tab" id="auditTabExternal" onclick="switchAuditTab('external')">External Validity</button>
+
+            <div class="side-tab-content">
+                <div class="side-tab-panel active" id="sideTabPanelMain">
+                    <div class="synthesis" id="synthesis"></div>
+
+                    <div class="prediction-block" id="predictionBlock">
+                        <div class="prediction-header">
+                            <span>Predictive Model</span>
+                            <span class="prediction-tag">AI FORECAST</span>
+                        </div>
+                        <div class="prediction-section">
+                            <div class="prediction-label constructive">Constructive Forecast</div>
+                            <div class="prediction-text" id="constructiveForecast"></div>
+                        </div>
+                        <div class="prediction-section">
+                            <div class="prediction-label destructive">Destructive Forecast</div>
+                            <div class="prediction-text" id="destructiveForecast"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="side-tab-panel" id="sideTabPanelAudit">
+                    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+                        <button id="auditBtn" onclick="runIntegrityAudit()" style="background:transparent;border:1px solid #00e5a0;color:#00e5a0;padding:7px 18px;font-family:var(--mono);font-size:11px;border-radius:3px;cursor:pointer;letter-spacing:0.08em;">Run Integrity Audit</button>
+                    </div>
+                    <div class="audit-block" id="auditBlock">
+                        <div class="audit-header">
+                            <span>Integrity Audit</span>
+                            <span class="audit-header-sub" id="auditHeaderSub">Citation ghosts &middot; methodology drift &middot; calibration &middot; contradictions &middot; reproducibility</span>
+                        </div>
+                        <div class="audit-tabs">
+                            <button class="audit-tab active" id="auditTabInternal" onclick="switchAuditTab('internal')">Internal Consistency</button>
+                            <button class="audit-tab" id="auditTabExternal" onclick="switchAuditTab('external')">External Validity</button>
+                        </div>
+                        <div class="audit-body" id="auditBody"></div>
+                    </div>
+                </div>
+
+                <div class="side-tab-panel" id="sideTabPanelPrisma">
+                    <div id="prismaTabContent"><div class="audit-empty">No PRISMA exclusions recorded for this search.</div></div>
+                </div>
+
+                <div class="side-tab-panel" id="sideTabPanelReferences">
+                    <div class="citations-block">
+                        <div class="citations-header" onclick="toggleCitations()">
+                            <span>References</span><span id="citChevron">&#9660;</span>
+                        </div>
+                        <div class="citations-list" id="citationsList"></div>
+                    </div>
+
+                    <div class="review-bar" id="reviewBar">
+                        <span id="reviewBarText">0 papers selected</span>
+                        <button class="review-btn" id="reviewBtn" onclick="generateReview()" disabled>Generate Literature Review</button>
+                    </div>
+                    <div class="review-output" id="reviewOutput">
+                        <div class="review-output-header">Generated Literature Review</div>
+                        <div class="review-output-body" id="reviewText"></div>
+                    </div>
+                </div>
+
+                <div class="side-tab-panel" id="sideTabPanelComparison">
+                    <div class="table-block" id="tableBlock">
+                        <div class="table-block-header" id="tableTitle">Evidence Comparison Table</div>
+                        <div class="table-wrap">
+                            <table class="data-table" id="dataTable">
+                                <thead id="tableHead"></thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="side-tab-panel" id="sideTabPanelFollowup">
+                    <div class="followup-block" id="followupBlock">
+                        <div class="followup-header">Ask a Follow-up</div>
+                        <div class="followup-input-row">
+                            <input id="followupInput" type="text" placeholder="e.g. What are the side effects of these treatments?" onkeydown="if(event.key==='Enter') askFollowup()">
+                            <button class="followup-ask-btn" id="followupBtn" onclick="askFollowup()">Ask</button>
+                        </div>
+                        <div class="followup-answer" id="followupAnswer"></div>
+                    </div>
+
+                    <div class="suggestions-block" id="suggestionsBlock">
+                        <div class="suggestions-header">
+                            <span id="suggestionsSpinner" class="suggestions-loading"></span>
+                            Suggested Follow-up Queries
+                        </div>
+                        <div class="suggestions-list" id="suggestionsList"></div>
+                    </div>
+                </div>
             </div>
-            <div class="audit-body" id="auditBody"></div>
         </div>
-
-        <div class="followup-block" id="followupBlock">
-            <div class="followup-header">Ask a Follow-up</div>
-            <div class="followup-input-row">
-                <input id="followupInput" type="text" placeholder="e.g. What are the side effects of these treatments?" onkeydown="if(event.key==='Enter') askFollowup()">
-                <button class="followup-ask-btn" id="followupBtn" onclick="askFollowup()">Ask</button>
-            </div>
-            <div class="followup-answer" id="followupAnswer"></div>
-        </div>
-
-        <div class="suggestions-block" id="suggestionsBlock">
-            <div class="suggestions-header">
-                <span id="suggestionsSpinner" class="suggestions-loading"></span>
-                Suggested Follow-up Queries
-            </div>
-            <div class="suggestions-list" id="suggestionsList"></div>
-        </div>
-
-        <div class="table-block" id="tableBlock">
-            <div class="table-block-header" id="tableTitle">Evidence Comparison Table</div>
-            <div class="table-wrap">
-                <table class="data-table" id="dataTable">
-                    <thead id="tableHead"></thead>
-                    <tbody id="tableBody"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="citations-block">
-            <div class="citations-header" onclick="toggleCitations()">
-                <span>References</span><span id="citChevron">&#9660;</span>
-            </div>
-            <div class="citations-list" id="citationsList"></div>
-        </div>
-    </div>
-
-    <!-- PREDICTION BLOCK: outside #results -->
-    <div class="prediction-block" id="predictionBlock">
-        <div class="prediction-header">
-            <span>Predictive Model</span>
-            <span class="prediction-tag">AI FORECAST</span>
-        </div>
-        <div class="prediction-section">
-            <div class="prediction-label constructive">Constructive Forecast</div>
-            <div class="prediction-text" id="constructiveForecast"></div>
-        </div>
-        <div class="prediction-section">
-            <div class="prediction-label destructive">Destructive Forecast</div>
-            <div class="prediction-text" id="destructiveForecast"></div>
-        </div>
-    </div>
-
-    <div class="review-bar" id="reviewBar">
-        <span id="reviewBarText">0 papers selected</span>
-        <button class="review-btn" id="reviewBtn" onclick="generateReview()" disabled>Generate Literature Review</button>
-    </div>
-    <div class="review-output" id="reviewOutput">
-        <div class="review-output-header">Generated Literature Review</div>
-        <div class="review-output-body" id="reviewText"></div>
     </div>
 
     <footer>
@@ -1308,7 +1424,24 @@ function toggleCitations() {
         document.getElementById("citationsList").classList.contains("open") ? "▲" : "▼";
 }
 
+const SIDE_TABS = [
+    { tab: "main", btn: "sideTabBtnMain", panel: "sideTabPanelMain" },
+    { tab: "audit", btn: "sideTabBtnAudit", panel: "sideTabPanelAudit" },
+    { tab: "prisma", btn: "sideTabBtnPrisma", panel: "sideTabPanelPrisma" },
+    { tab: "references", btn: "sideTabBtnReferences", panel: "sideTabPanelReferences" },
+    { tab: "comparison", btn: "sideTabBtnComparison", panel: "sideTabPanelComparison" },
+    { tab: "followup", btn: "sideTabBtnFollowup", panel: "sideTabPanelFollowup" },
+];
+
+function switchSideTab(tab) {
+    SIDE_TABS.forEach(t => {
+        document.getElementById(t.btn).classList.toggle("active", t.tab === tab);
+        document.getElementById(t.panel).classList.toggle("active", t.tab === tab);
+    });
+}
+
 async function renderResults(data) {
+    switchSideTab("main");
     const meta = document.getElementById("metaBar");
     meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">Qwen2.5-72B on AMD MI300X</div>`;
     const sections = parseSynthesis(data.synthesis);
@@ -1376,8 +1509,11 @@ async function renderResults(data) {
     document.getElementById("auditBody").innerHTML = "";
 
     if (window._pendingPrismaBlock) {
-        const citBlock = document.querySelector('.citations-block');
-        if (citBlock) citBlock.parentElement.insertBefore(window._pendingPrismaBlock, citBlock);
+        const prismaContainer = document.getElementById('prismaTabContent');
+        if (prismaContainer) {
+            prismaContainer.innerHTML = '';
+            prismaContainer.appendChild(window._pendingPrismaBlock);
+        }
         window._pendingPrismaBlock = null;
     }
 }
@@ -1689,7 +1825,11 @@ async function saveSession(data, query) {
 function renderPrismaExclusions(excluded) {
     const old = document.getElementById('prismaBlock');
     if (old) old.remove();
-    if (!excluded || excluded.length === 0) return;
+    const prismaContainer = document.getElementById('prismaTabContent');
+    if (!excluded || excluded.length === 0) {
+        if (prismaContainer) prismaContainer.innerHTML = '<div class="audit-empty">No PRISMA exclusions recorded for this search.</div>';
+        return;
+    }
 
     const block = document.createElement('div');
     block.id = 'prismaBlock';
@@ -1722,9 +1862,9 @@ function renderPrismaExclusions(excluded) {
         </div>
     `;
 
-    const citBlock = document.querySelector('.citations-block');
-    if (citBlock) {
-        citBlock.parentElement.insertBefore(block, citBlock);
+    if (prismaContainer) {
+        prismaContainer.innerHTML = '';
+        prismaContainer.appendChild(block);
     } else {
         window._pendingPrismaBlock = block;
     }
