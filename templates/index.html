@@ -302,6 +302,26 @@
             background: var(--accent-dim);
         }
 
+        .side-tab-icon { display: none; font-weight: 600; }
+
+        /* Collapse/expand toggle: desktop-only (mobile stays a horizontal
+           top tab bar, where "collapse to icon strip" doesn't apply). */
+        .side-tab-collapse-btn {
+            display: none;
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 10px;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .side-tab-collapse-btn:hover { color: var(--accent); }
+
         .side-tab-content { padding: 18px; min-width: 0; }
 
         .side-tab-panel { display: none; }
@@ -1170,17 +1190,42 @@
                 padding: 12px 18px;
             }
 
-            /* Side tabs: vertical left-side panel instead of a top tab bar */
-            .side-tab-layout { flex-direction: row; align-items: stretch; }
+            /* Side tabs: vertical left-side panel instead of a top tab bar.
+               Nav stays full-height (stretched to match content, as before)
+               but is pinned via position:sticky so it never scrolls with the
+               outer page; content gets its own bounded, independently-
+               scrolling box so scrolling a long panel (e.g. PRISMA table)
+               never moves the nav. */
+            /* overflow:visible (overriding the mobile default of hidden) so
+               .side-tab-nav's position:sticky is computed against the page's
+               scroll container, not clipped to this box. align-items:stretch
+               is kept on the row for .side-tab-content's benefit, but the
+               nav itself opts out via align-self:flex-start — sticky items
+               that get stretched to fill a flex container's cross size don't
+               reliably clamp to their `top` offset, so nav needs its own
+               natural (unstretched) height for position:sticky to work. */
+            .side-tab-layout { flex-direction: row; align-items: stretch; overflow: visible; }
 
             .side-tab-nav {
                 flex-direction: column;
                 width: 200px;
                 flex-shrink: 0;
                 overflow-x: visible;
-                border-bottom: none;
-                border-right: 1px solid var(--border);
+                border-bottom: 1px solid var(--border);
+                border-radius: 4px 0 0 4px;
+                position: sticky;
+                top: 20px;
+                align-self: flex-start;
+                transition: width 0.25s ease;
             }
+
+            .side-tab-collapse-btn { display: block; }
+
+            .side-tab-nav.collapsed { width: 56px; }
+            .side-tab-nav.collapsed .side-tab-label { display: none; }
+            .side-tab-nav.collapsed .side-tab-icon { display: inline-block; }
+            .side-tab-nav.collapsed .side-tab-btn { text-align: center; padding: 14px 6px; }
+            .side-tab-nav.collapsed .side-tab-collapse-btn { transform: scaleX(-1); }
 
             .side-tab-btn {
                 text-align: left;
@@ -1194,7 +1239,14 @@
                 border-bottom-color: transparent;
             }
 
-            .side-tab-content { flex: 1; padding: 24px 28px; }
+            .side-tab-content {
+                flex: 1;
+                padding: 24px 28px;
+                min-height: 320px;
+                max-height: calc(100vh - 180px);
+                overflow-y: auto;
+                border-left: 1px solid var(--border);
+            }
         }
     </style>
 </head>
@@ -1269,13 +1321,14 @@
         </div>
 
         <div class="side-tab-layout">
-            <div class="side-tab-nav">
-                <button class="side-tab-btn active" id="sideTabBtnMain" onclick="switchSideTab('main')">Main</button>
-                <button class="side-tab-btn" id="sideTabBtnAudit" onclick="switchSideTab('audit')">Integrity Audit</button>
-                <button class="side-tab-btn" id="sideTabBtnPrisma" onclick="switchSideTab('prisma')">PRISMA</button>
-                <button class="side-tab-btn" id="sideTabBtnReferences" onclick="switchSideTab('references')">References</button>
-                <button class="side-tab-btn" id="sideTabBtnComparison" onclick="switchSideTab('comparison')">Comparison</button>
-                <button class="side-tab-btn" id="sideTabBtnFollowup" onclick="switchSideTab('followup')">Follow-up</button>
+            <div class="side-tab-nav" id="sideTabNav">
+                <button class="side-tab-collapse-btn" id="sideTabCollapseBtn" onclick="toggleSideNav()" title="Collapse sidebar" aria-label="Collapse sidebar">&#9664;</button>
+                <button class="side-tab-btn active" id="sideTabBtnMain" onclick="switchSideTab('main')" title="Main"><span class="side-tab-icon">MA</span><span class="side-tab-label">Main</span></button>
+                <button class="side-tab-btn" id="sideTabBtnAudit" onclick="switchSideTab('audit')" title="Integrity Audit"><span class="side-tab-icon">IA</span><span class="side-tab-label">Integrity Audit</span></button>
+                <button class="side-tab-btn" id="sideTabBtnPrisma" onclick="switchSideTab('prisma')" title="PRISMA"><span class="side-tab-icon">PR</span><span class="side-tab-label">PRISMA</span></button>
+                <button class="side-tab-btn" id="sideTabBtnReferences" onclick="switchSideTab('references')" title="References"><span class="side-tab-icon">RE</span><span class="side-tab-label">References</span></button>
+                <button class="side-tab-btn" id="sideTabBtnComparison" onclick="switchSideTab('comparison')" title="Comparison"><span class="side-tab-icon">CO</span><span class="side-tab-label">Comparison</span></button>
+                <button class="side-tab-btn" id="sideTabBtnFollowup" onclick="switchSideTab('followup')" title="Follow-up"><span class="side-tab-icon">FU</span><span class="side-tab-label">Follow-up</span></button>
             </div>
 
             <div class="side-tab-content">
@@ -1438,6 +1491,14 @@ function switchSideTab(tab) {
         document.getElementById(t.btn).classList.toggle("active", t.tab === tab);
         document.getElementById(t.panel).classList.toggle("active", t.tab === tab);
     });
+}
+
+function toggleSideNav() {
+    const nav = document.getElementById("sideTabNav");
+    const collapsed = nav.classList.toggle("collapsed");
+    const btn = document.getElementById("sideTabCollapseBtn");
+    btn.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
+    btn.setAttribute("aria-label", btn.title);
 }
 
 async function renderResults(data) {
