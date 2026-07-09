@@ -12,9 +12,14 @@ You will be given a finding from Paper A and a finding from Paper B, both addres
 Decide how the two findings relate to each other.
 
 Categories:
-- "consistent": the findings agree — same direction of effect, and any differences in magnitude or population are compatible/complementary rather than conflicting.
+- "consistent": the findings agree — same direction of effect, and any differences in magnitude or population are compatible/complementary rather than conflicting. Also use "consistent" when the two findings simply don't overlap in topic (see rule below) — there is no actual conflict.
 - "partial_conflict": the findings are in tension but not flatly opposed — e.g. same direction of effect but substantially different magnitude, one reaches statistical significance and the other doesn't, or the effect holds in one subgroup/setting but not clearly in the other.
 - "direct_contradiction": the findings flatly oppose each other — opposite direction of effect on the same outcome in comparable populations, or one confirms an association/mechanism that the other explicitly refutes.
+
+Required rule for "direct_contradiction": it applies ONLY when both papers make a claim about the SAME specific question or metric (e.g. both report the effect of the same intervention on the same outcome, or both assess the predictive accuracy of the same score) and reach opposing conclusions on it. A shared broad topic (e.g. "chest trauma", "thoracic injury") is NOT enough — if the two findings are actually measuring or claiming different things (different metric, different research question, no shared outcome to compare), there is nothing to oppose. In that case flag "consistent" and explain in the explanation that the topics/questions don't overlap, so no real conflict exists. Do not flag "direct_contradiction" just because two papers are about the same general clinical area.
+
+Example of non-overlapping topics that must NOT be flagged as a contradiction:
+Paper A finds that a trauma severity score (e.g. STUMBL) outperforms another score (ISS) at predicting ICU admission and mortality after blunt chest trauma. Paper B finds that road traffic collisions and low-height falls are the most common mechanisms of blunt chest trauma in elderly patients. Both papers are about blunt chest trauma, but Paper A is about the predictive accuracy of a scoring tool and Paper B is about injury mechanism/epidemiology — they make no claim about the same question, so this is "consistent" (no overlap, hence no conflict), not "direct_contradiction".
 
 Return ONLY valid JSON, no markdown, no explanation outside the JSON:
 {{
@@ -88,6 +93,15 @@ if __name__ == "__main__":
             "finding_a": "Hormone replacement therapy was associated with a 30% reduction in the risk of coronary heart disease in postmenopausal women (observational cohort, n=50,000).",
             "paper_b": "Women's Health Initiative, 2002 (randomized controlled trial)",
             "finding_b": "In a randomized controlled trial of postmenopausal women, hormone replacement therapy significantly increased the risk of coronary heart disease (HR 1.29, 95% CI 1.02-1.63).",
+        },
+        {
+            # regression case: same broad topic (blunt chest trauma) but different question/metric
+            # (predictive accuracy of a severity score vs. injury mechanism epidemiology in the elderly)
+            # -> must be "consistent" (no overlap), not "direct_contradiction"
+            "paper_a": "Isharanto et al., 2026",
+            "finding_a": "The STUMBL score outperformed ISS in predicting prolonged hospitalization, ICU admission, and in-hospital mortality among patients with blunt thoracic trauma. Its application may improve early risk stratification and support clinical decision-making in Indonesian tertiary hospitals.",
+            "paper_b": "Hefny et al., 2026",
+            "finding_b": "Despite reduced occupational exposure and lower engagement in high-risk activities, road traffic collisions remain a major cause of blunt chest trauma in elderly populations. Although many falls are low-energy events, their high incidence makes them a frequent contributor to the overall blunt chest trauma burden in the elderly.",
         },
     ]
 
