@@ -1051,6 +1051,63 @@
         .aria-logo-a { animation: fadeUp 0.8s ease 0.2s both; }
         .aria-logo-crossbar { transform-origin: center; animation: scaleIn 0.6s ease 0.8s both; }
         .aria-logo-glow { animation: glowPulse 3s ease-in-out infinite; }
+
+        /* ===================================================================
+         * Desktop overrides — mobile styles above remain the default/fallback.
+         * =================================================================== */
+        @media (min-width: 1024px) {
+            body { font-size: 16px; }
+
+            .container {
+                max-width: 1100px;
+                padding: 56px 48px 100px;
+            }
+
+            h1 { font-size: 38px; }
+
+            .subtitle { font-size: 14px; }
+
+            textarea { font-size: 16px; }
+
+            .section-body {
+                font-size: 15px;
+                padding: 20px 22px;
+            }
+
+            .review-output-body { font-size: 15px; }
+
+            .prediction-text { font-size: 15px; }
+
+            .followup-answer { font-size: 15px; }
+
+            /* Audit cards: 2-column grid instead of a single stacked column */
+            .audit-subsection {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px 16px;
+                align-items: start;
+            }
+
+            .audit-subsection-title,
+            .audit-empty,
+            .audit-error {
+                grid-column: 1 / -1;
+            }
+
+            .audit-card { margin-bottom: 0; }
+
+            .audit-card-body { font-size: 14px; }
+
+            .audit-card-claim { font-size: 13px; }
+
+            /* Comparison table: more breathing room on wider viewports */
+            table.data-table { font-size: 13px; }
+
+            table.data-table th,
+            table.data-table td {
+                padding: 12px 18px;
+            }
+        }
     </style>
 </head>
 <body>
