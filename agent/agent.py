@@ -224,7 +224,7 @@ def run_table_extractor(user_question, synthesis, papers):
         "Papers:\n" + papers_str + "\n\n"
         "Synthesis:\n" + synthesis[:1500]
     )
-    response = llm.invoke(prompt)
+    response = llm_invoke_with_retry(llm, prompt)
     import json
     text = response.content.strip().replace("```json", "").replace("```", "").strip()
     return json.loads(text)
