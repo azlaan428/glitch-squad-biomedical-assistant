@@ -7,8 +7,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, HRFlowable,
+                                 Table, TableStyle, KeepTogether)
 from reportlab.lib.enums import TA_LEFT
+from xml.sax.saxutils import escape as xml_escape
 import io
 
 app = Flask(__name__)
@@ -143,6 +145,137 @@ def suggest_queries():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+PDF_CONTENT_WIDTH = 170 * mm
+PDF_DARK = colors.HexColor("#111827")
+AUDIT_FLAG_COLOR = colors.HexColor("#00997a")
+AUDIT_EMPTY_STYLE = ParagraphStyle("auditEmpty", fontName="Helvetica-Oblique", fontSize=8.5,
+    textColor=colors.HexColor("#5a6a7a"), spaceAfter=6)
+AUDIT_GROUP_STYLE = ParagraphStyle("auditGroup", fontName="Helvetica-Bold", fontSize=9,
+    textColor=PDF_DARK, spaceBefore=8, spaceAfter=4)
+AUDIT_SUBSECTION_STYLE = ParagraphStyle("auditSub", fontName="Helvetica-Bold", fontSize=8.5,
+    textColor=AUDIT_FLAG_COLOR, spaceBefore=6, spaceAfter=3)
+TABLE_HEADER_STYLE = ParagraphStyle("tblHeader", fontName="Helvetica-Bold", fontSize=8.5,
+    textColor=colors.white, leading=11)
+TABLE_CELL_STYLE = ParagraphStyle("tblCell", fontName="Helvetica", fontSize=8.5,
+    textColor=PDF_DARK, leading=12)
+AUDIT_CARD_STYLE = ParagraphStyle("auditCard", fontName="Helvetica", fontSize=8.5,
+    leading=12.5, textColor=PDF_DARK)
+
+
+def pdf_truncate(s, n):
+    s = s or ""
+    return (s[:n].strip() + "…") if len(s) > n else s
+
+
+def pdf_humanize(flag):
+    if not flag:
+        return "Unknown"
+    return " ".join(w.capitalize() for w in str(flag).split("_"))
+
+
+def pdf_data_table(columns, rows, col_widths=None):
+    n = max(len(columns), 1)
+    if not col_widths:
+        w = PDF_CONTENT_WIDTH / n
+        col_widths = [w] * n
+    data = [[Paragraph(xml_escape(str(c)), TABLE_HEADER_STYLE) for c in columns]]
+    for row in rows:
+        row = list(row) if isinstance(row, (list, tuple)) else [row]
+        if len(row) < n:
+            row = row + [""] * (n - len(row))
+        elif len(row) > n:
+            row = row[:n]
+        data.append([Paragraph(xml_escape(str(cell)) if cell not in (None, "") else "—", TABLE_CELL_STYLE)
+                     for cell in row])
+    t = Table(data, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0b3d33")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#dbe2e8")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f7f9fb")]),
+    ]))
+    return t
+
+
+def pdf_audit_card(badge_text, header_text, confidence, claim_text, explanation_text, extra_text=None):
+    lines = []
+    conf = "  ({0}% conf.)".format(confidence) if confidence is not None else ""
+    lines.append("<b>[{0}]</b> <b>{1}</b>{2}".format(
+        xml_escape(str(badge_text)), xml_escape(header_text or ""), xml_escape(conf)))
+    if claim_text:
+        lines.append("<i>“{0}”</i>".format(xml_escape(pdf_truncate(claim_text, 220))))
+    if explanation_text:
+        lines.append(xml_escape(explanation_text))
+    if extra_text:
+        lines.append(xml_escape(extra_text))
+    p = Paragraph("<br/>".join(lines), AUDIT_CARD_STYLE)
+    t = Table([[p]], colWidths=[PDF_CONTENT_WIDTH])
+    t.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#dbe2e8")),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f9fb")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return t
+
+
+def pdf_ghost_card(r):
+    header = pdf_truncate(r.get("paper_title") or "", 60) or ("PMID " + str(r.get("pmid", "")))
+    return pdf_audit_card(pdf_humanize(r.get("flag")), header, r.get("confidence"), r.get("claim"), r.get("explanation"))
+
+
+def pdf_drift_card(r):
+    header = pdf_truncate(r.get("title") or "", 60) or ("PMID " + str(r.get("pmid", "")))
+    return pdf_audit_card(pdf_humanize(r.get("flag")), header, r.get("confidence"), None, r.get("explanation"))
+
+
+def pdf_calibration_card(r):
+    header = pdf_truncate(r.get("paper_title") or "", 60) or ("PMID " + str(r.get("pmid", "")))
+    return pdf_audit_card(pdf_humanize(r.get("flag")), header, r.get("confidence"), r.get("claim"), r.get("explanation"))
+
+
+def pdf_contradiction_card(r):
+    header = "{0} ↔ {1}".format(r.get("paper_a", ""), r.get("paper_b", ""))
+    return pdf_audit_card(pdf_humanize(r.get("flag")), header, r.get("confidence"), None, r.get("explanation"))
+
+
+def pdf_repro_card(r):
+    header = pdf_truncate(r.get("title") or "", 60) or ("PMID " + str(r.get("pmid", "")))
+    breakdown = r.get("breakdown") or {}
+    parts = []
+    for k, v in breakdown.items():
+        present = bool(v.get("present")) if isinstance(v, dict) else bool(v)
+        parts.append(pdf_humanize(k) + ": " + ("present" if present else "missing"))
+    extra = "; ".join(parts) if parts else None
+    score = r.get("score")
+    badge = "{0}/100".format(score) if score is not None else "N/A"
+    return pdf_audit_card(badge, header, None, None, r.get("explanation"), extra)
+
+
+def pdf_render_audit_check(label, result_obj, card_fn):
+    result_obj = result_obj or {}
+    if result_obj.get("error"):
+        return [Paragraph(label, AUDIT_SUBSECTION_STYLE),
+                Paragraph("Check failed: " + xml_escape(str(result_obj["error"])), AUDIT_EMPTY_STYLE),
+                Spacer(1, 4 * mm)]
+    items = result_obj.get("results") or []
+    if not items:
+        return [Paragraph(label, AUDIT_SUBSECTION_STYLE),
+                Paragraph("No data available for this check.", AUDIT_EMPTY_STYLE),
+                Spacer(1, 4 * mm)]
+    header = Paragraph("{0} ({1})".format(label, len(items)), AUDIT_SUBSECTION_STYLE)
+    # Glue the subsection header to its first card so the header never gets
+    # orphaned alone at the bottom of a page with all its cards pushed over.
+    flows = [KeepTogether([header, card_fn(items[0])]), Spacer(1, 3 * mm)]
+    for item in items[1:]:
+        flows.append(KeepTogether([card_fn(item)]))
+        flows.append(Spacer(1, 3 * mm))
+    return flows
+
+
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     data = request.get_json()
@@ -209,6 +342,47 @@ def export_pdf():
                 story.append(Paragraph(para, body_style))
 
     story.append(Spacer(1, 8*mm))
+
+    comparison_table = data.get("comparison_table")
+    if comparison_table and comparison_table.get("rows"):
+        table_columns = comparison_table.get("columns") or []
+        table_rows = comparison_table.get("rows") or []
+        table_title = comparison_table.get("title") or "Evidence Comparison Table"
+        story.append(KeepTogether([
+            Paragraph("COMPARISON TABLE", section_label_style),
+            Paragraph(xml_escape(table_title), body_style),
+            pdf_data_table(table_columns, table_rows),
+        ]))
+        story.append(Spacer(1, 8*mm))
+
+    prisma_excluded = data.get("prisma_excluded") or []
+    if prisma_excluded:
+        prisma_rows = [[p.get("pmid", ""), p.get("title") or "—", p.get("reason") or "Not specified"]
+                       for p in prisma_excluded]
+        story.append(KeepTogether([
+            Paragraph("PRISMA EXCLUSIONS ({0} EXCLUDED)".format(len(prisma_excluded)), section_label_style),
+            pdf_data_table(["PMID", "Title", "Reason Excluded"], prisma_rows,
+                            col_widths=[22*mm, 88*mm, 60*mm]),
+        ]))
+        story.append(Spacer(1, 8*mm))
+
+    audit_results = data.get("audit_results") or {}
+    audit_has_data = any((audit_results.get(k) or {}).get("results")
+                          for k in ("ghost", "drift", "calibration", "contradiction", "repro"))
+    if audit_has_data:
+        story.append(Paragraph("INTEGRITY AUDIT", section_label_style))
+
+        story.append(Paragraph("Internal Consistency", AUDIT_GROUP_STYLE))
+        story += pdf_render_audit_check("Methodology Drift", audit_results.get("drift"), pdf_drift_card)
+        story += pdf_render_audit_check("Confidence Calibration", audit_results.get("calibration"), pdf_calibration_card)
+
+        story.append(Paragraph("External Validity", AUDIT_GROUP_STYLE))
+        story += pdf_render_audit_check("Citation Ghost Check", audit_results.get("ghost"), pdf_ghost_card)
+        story += pdf_render_audit_check("Cross-Paper Contradiction", audit_results.get("contradiction"), pdf_contradiction_card)
+        story += pdf_render_audit_check("Reproducibility Score", audit_results.get("repro"), pdf_repro_card)
+
+        story.append(Spacer(1, 8*mm))
+
     story.append(HRFlowable(width="100%", thickness=1,
         color=colors.HexColor("#1e2936"), spaceAfter=8))
     story.append(Paragraph("REFERENCES", section_label_style))

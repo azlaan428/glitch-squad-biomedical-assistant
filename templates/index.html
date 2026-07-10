@@ -1600,6 +1600,9 @@ async function submitQuery() {
     document.getElementById("auditBtn").classList.remove("visible");
     document.getElementById("auditBlock").classList.remove("visible");
     document.getElementById("auditBody").innerHTML = "";
+    lastPrismaExcluded = [];
+    lastComparisonTable = null;
+    lastAuditResults = null;
     document.getElementById("pipeline").classList.add("visible");
     setStage(1);
     updateProgress(5);
@@ -1630,6 +1633,7 @@ async function submitQuery() {
         const filtered = d.filtered;
         if (!filtered) return;
         const excluded = Object.entries(filtered).filter(([, p]) => !p.included);
+        lastPrismaExcluded = excluded;
         renderPrismaExclusions(excluded);
     });
     es.addEventListener("error", e => {
@@ -1648,6 +1652,9 @@ document.getElementById("queryInput").addEventListener("keydown", e => {
 
 let lastResult = null;
 let lastQuery = '';
+let lastPrismaExcluded = [];
+let lastComparisonTable = null;
+let lastAuditResults = null;
 
 async function fetchQuerySuggestions(query, synthesis) {
     const block = document.getElementById('suggestionsBlock');
@@ -1696,7 +1703,12 @@ async function exportPDF() {
                 synthesis: lastResult.synthesis,
                 citations: lastResult.citations,
                 query: lastQuery,
-                paper_count: lastResult.paper_count
+                paper_count: lastResult.paper_count,
+                comparison_table: lastComparisonTable,
+                prisma_excluded: lastPrismaExcluded.map(([pmid, p]) => ({
+                    pmid, title: p.title, reason: p.reason
+                })),
+                audit_results: lastAuditResults
             })
         });
         const blob = await res.blob();
@@ -1938,6 +1950,7 @@ async function buildTable(question, synthesis, papers) {
         if (data.error || !data.table) return;
         const t = data.table;
         if (!t.rows || t.rows.length === 0) return;
+        lastComparisonTable = t;
         document.getElementById('tableTitle').textContent = t.title || 'Evidence Comparison Table';
         document.getElementById('tableHead').innerHTML = '<tr>' + (t.columns || []).map(c => `<th>${c}</th>`).join('') + '</tr>';
         document.getElementById('tableBody').innerHTML = t.rows.map(row => '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>').join('');
@@ -2227,7 +2240,8 @@ async function runIntegrityAudit() {
             staggeredAuditRoute('/cross-paper-contradiction-check', { pairs }, pairs, 3 * STAGGER_MS),
             staggeredAuditRoute('/reproducibility-score', { papers: reproPapers }, reproPapers, 4 * STAGGER_MS),
         ]);
-        renderAuditResults({ ghost, drift, calibration, contradiction, repro });
+        lastAuditResults = { ghost, drift, calibration, contradiction, repro };
+        renderAuditResults(lastAuditResults);
     } catch (e) {
         body.innerHTML = '<div class="audit-error">Audit failed: ' + esc(e.message) + '</div>';
     } finally {
