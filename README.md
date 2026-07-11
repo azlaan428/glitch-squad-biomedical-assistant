@@ -66,7 +66,7 @@ A sticky, collapsible side-panel with six tabs: **Main**, **Integrity Audit**, *
 
 | Component | Technology |
 |-----------|------------|
-| LLM | **Groq — `llama-3.1-8b-instant` (active)**. The pipeline previously ran on Qwen2.5-72B-Instruct via vLLM on a rented AMD MI300X during the hackathon, then was reverted to Groq for reliability. That code path no longer exists in the tree — swapping back means rewriting `get_llm()` in `agent/agent.py` (it's a ~5 line change, see git history at `7dd2c52`/`f81857a`) and standing up an inference endpoint again. |
+| LLM | **Qwen2.5-72B-Instruct via vLLM on AMD MI300X, with automatic fallback to Groq (`llama-3.1-8b-instant`)**. `get_llm()` in `agent/agent.py` probes `VLLM_BASE_URL` before each request; if it's unset or unreachable, it falls back to Groq automatically and logs which backend actually served the request. See [Deploying Your Own AMD MI300X Inference Backend](#deploying-your-own-amd-mi300x-inference-backend) to stand up the vLLM endpoint yourself. |
 | Agent Framework | LangGraph + LangChain |
 | Literature Retrieval | BioPython Entrez (PubMed) + Europe PMC REST API |
 | Web Framework | Flask, SSE streaming |
@@ -99,6 +99,53 @@ python app.py
 Open http://localhost:7860 (default port, overridable via the `PORT` env var — this is what the Dockerfile also sets for Hugging Face Spaces).
 
 > Groq's free tier rate-limits fairly aggressively. Every LLM call in the pipeline retries with backoff on a 429, but a query against a large paper set can still take a couple of minutes if it has to back off repeatedly.
+
+## Deploying Your Own AMD MI300X Inference Backend
+
+ARIA defaults to Groq, but will automatically route through a self-hosted **Qwen2.5-72B-Instruct** model on an AMD MI300X GPU if you stand one up. Here's how to reproduce that setup from scratch.
+
+1. **Create the droplet** — go to [devcloud.amd.com](https://devcloud.amd.com), sign in (or sign up), and create a new GPU droplet:
+   - Choose an MI300X-backed instance (192GB VRAM)
+   - Under **Choose an image → Quick Start**, select the vLLM package (ROCm 7.2.4 host, Ubuntu 24.04, vLLM 0.23.0 pre-installed)
+   - Launch the droplet and note its public IPv4 address
+
+2. **SSH in** (default user `root`, port `22`) using the SSH key you configured at droplet creation:
+   ```bash
+   ssh -i /path/to/your/key root@<droplet-public-ip>
+   ```
+
+3. **Confirm the environment.** The vLLM stack runs inside a pre-existing `rocm` docker container, with port 8000 already mapped through to the host:
+   ```bash
+   docker ps -a
+   docker exec rocm pip show vllm
+   rocm-smi          # confirms the GPU is detected
+   ```
+
+4. **Start the vLLM OpenAI-compatible server**, detached so it survives disconnecting your SSH session:
+   ```bash
+   docker exec -d rocm bash -lc \
+     'nohup vllm serve Qwen/Qwen2.5-72B-Instruct --host 0.0.0.0 --port 8000 > /root/vllm_server.log 2>&1 &'
+   ```
+
+5. **Wait for it to finish loading** (roughly a few minutes for this model size — most of the time goes to the safetensors download and shard loading), then confirm it's serving:
+   ```bash
+   curl http://localhost:8000/v1/models
+   ```
+
+6. **Confirm external reachability** from your own machine:
+   ```bash
+   curl http://<droplet-public-ip>:8000/v1/models
+   ```
+   No firewall changes were needed in this deployment — `ufw`'s default policy already permitted port 8000 — but check `ufw status verbose` on your own droplet, since this can vary.
+
+7. **Point ARIA at it.** Set `VLLM_BASE_URL` as an environment variable/repository secret wherever ARIA is deployed (e.g. Hugging Face Space → Settings → Repository secrets):
+   ```
+   VLLM_BASE_URL=http://<droplet-public-ip>:8000/v1
+   ```
+
+8. **Restart the deployment.** The footer and results badge should now read *"Powered by Qwen2.5-72B on AMD MI300X"* — confirming the app is actually routing through the AMD backend, not the Groq fallback.
+
+> **If this droplet is destroyed** (e.g. after hackathon credits run out), ARIA doesn't break. `get_llm()` probes `VLLM_BASE_URL` before every request and falls back to Groq automatically and transparently the moment the endpoint stops responding, no code changes needed — the footer just updates to say so. That's by design, not a failure mode.
 
 ## Live Demo
 
