@@ -1,4 +1,4 @@
-import sys, os, re
+import sys, os, re, time, logging, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -7,12 +7,74 @@ from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 from retrieval.pubmed import fetch_pubmed
 
+logger = logging.getLogger("aria.llm")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+VLLM_MODEL = "Qwen/Qwen2.5-72B-Instruct"
+VLLM_PROBE_TIMEOUT = 3       # seconds to wait for the vLLM endpoint to answer
+VLLM_PROBE_TTL = 30          # re-probe at most this often, so a busy pipeline
+                              # (many get_llm() calls per query) doesn't pay a
+                              # connection-timeout penalty on every single call
+
+_backend_lock = threading.Lock()
+_backend_state = {"backend": None, "checked_at": 0.0}
+
+
+def _vllm_reachable(base_url):
+    import requests
+    try:
+        resp = requests.get(base_url.rstrip("/") + "/models", timeout=VLLM_PROBE_TIMEOUT)
+        return resp.status_code < 500
+    except requests.RequestException as e:
+        logger.warning(f"[ARIA] vLLM endpoint unreachable at {base_url}: {e}")
+        return False
+
+
+def _resolve_backend():
+    """Decides vllm vs groq and caches the decision for VLLM_PROBE_TTL seconds."""
+    now = time.time()
+    with _backend_lock:
+        if _backend_state["backend"] and (now - _backend_state["checked_at"]) < VLLM_PROBE_TTL:
+            return _backend_state["backend"]
+
+        vllm_base_url = os.environ.get("VLLM_BASE_URL")
+        if vllm_base_url and _vllm_reachable(vllm_base_url):
+            backend = "vllm"
+            logger.info(f"[ARIA] Backend: AMD MI300X vLLM endpoint at {vllm_base_url} ({VLLM_MODEL})")
+        else:
+            if vllm_base_url:
+                logger.warning(f"[ARIA] VLLM_BASE_URL={vllm_base_url} is set but unreachable, falling back to Groq")
+            else:
+                logger.info("[ARIA] VLLM_BASE_URL not set, using Groq")
+            backend = "groq"
+            logger.info("[ARIA] Backend: Groq (llama-3.1-8b-instant)")
+
+        _backend_state["backend"] = backend
+        _backend_state["checked_at"] = now
+        return backend
+
+
+def get_backend_status():
+    """Reports which LLM backend is actually active, probing if not yet resolved."""
+    if _resolve_backend() == "vllm":
+        return {"backend": "vllm", "label": "Powered by Qwen2.5-72B on AMD MI300X"}
+    return {"backend": "groq", "label": "Powered by Groq (llama-3.1-8b-instant) — AMD MI300X endpoint unavailable"}
+
 
 def get_llm():
+    if _resolve_backend() == "vllm":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=VLLM_MODEL,
+            temperature=0,
+            openai_api_key=os.environ.get("VLLM_API_KEY", "EMPTY"),
+            openai_api_base=os.environ.get("VLLM_BASE_URL"),
+        )
+
     key = os.environ.get("GROQ_API_KEY")
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set in environment")
-    print(f"[ARIA] GROQ_API_KEY found, length={len(key)}")
     return ChatGroq(
         model="llama-3.1-8b-instant",
         temperature=0,

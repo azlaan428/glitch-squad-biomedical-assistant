@@ -1425,13 +1425,14 @@
     </div>
 
     <footer>
-        <span>Powered by LangGraph &middot; Qwen2.5-72B &middot; AMD MI300X &middot; PubMed NCBI</span>
+        <span id="footerBackend">Powered by LangGraph &middot; PubMed NCBI</span>
         <span>AI-generated synthesis &mdash; verify against primary sources</span>
         <span style="color:var(--text-dim);font-family:var(--mono);font-size:10px;">Azlaan Mohammad &middot; 2026</span>
     </footer>
 </div>
 
 <script>
+let currentBackendLabel = null;
 const SECTIONS = [
     { key: "## Background", label: "Background" },
     { key: "## Key Findings", label: "Key Findings" },
@@ -1501,10 +1502,26 @@ function toggleSideNav() {
     btn.setAttribute("aria-label", btn.title);
 }
 
+function setBackendLabel(label) {
+    if (!label) return;
+    currentBackendLabel = label;
+    document.getElementById("footerBackend").textContent = "Powered by LangGraph · " + label.replace(/^Powered by /, "") + " · PubMed NCBI";
+}
+
+async function loadBackendStatus() {
+    try {
+        const res = await fetch("/backend-status");
+        const data = await res.json();
+        setBackendLabel(data.label);
+    } catch (err) { /* leave default footer text */ }
+}
+loadBackendStatus();
+
 async function renderResults(data) {
     switchSideTab("main");
     const meta = document.getElementById("metaBar");
-    meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">Qwen2.5-72B on AMD MI300X</div>`;
+    const backendBadge = currentBackendLabel ? currentBackendLabel.replace(/^Powered by /, "") : "Qwen2.5-72B on AMD MI300X";
+    meta.innerHTML = `<div class="badge green">${data.paper_count} papers retrieved</div><div class="badge">${data.queries ? data.queries.length : 0} PubMed queries</div><div class="badge">${backendBadge}</div>`;
     const sections = parseSynthesis(data.synthesis);
     const synthEl = document.getElementById("synthesis");
     synthEl.innerHTML = "";
@@ -1610,6 +1627,7 @@ async function submitQuery() {
 
     const es = new EventSource("/stream?query=" + encodeURIComponent(q));
 
+    es.addEventListener("backend", e => { setBackendLabel(JSON.parse(e.data).label); });
     es.addEventListener("stage", e => { const d = JSON.parse(e.data); setStage(d.stage); updateProgress(d.pct); });
     es.addEventListener("queries", e => { updateProgress(JSON.parse(e.data).pct); });
     es.addEventListener("papers", e => { updateProgress(JSON.parse(e.data).pct); });

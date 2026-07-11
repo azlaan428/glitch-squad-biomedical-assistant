@@ -2,7 +2,8 @@ import sys, os, json, time
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, render_template, request, jsonify, send_file, Response, stream_with_context
 from agent.agent import (run_pipeline, run_query_architect, run_literature_scout,
-                         run_evidence_synthesiser, run_citation_builder, llm_invoke_with_retry, get_llm)
+                         run_evidence_synthesiser, run_citation_builder, llm_invoke_with_retry, get_llm,
+                         get_backend_status)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
@@ -18,6 +19,10 @@ app = Flask(__name__)
 @app.route("/")
 def index():
     return render_template("index.html")
+
+@app.route("/backend-status", methods=["GET"])
+def backend_status():
+    return jsonify(get_backend_status())
 
 @app.route("/query", methods=["POST"])
 def query():
@@ -47,6 +52,9 @@ def stream():
             return "event: " + event + "\ndata: " + json.dumps(data) + "\n\n"
         try:
             print("[STREAM] Pipeline started")                       # ADD
+            backend = get_backend_status()
+            print(f"[STREAM] Backend: {backend['backend']}")          # ADD
+            yield emit("backend", backend)
             # Stage 1
             yield emit("stage", {"stage": 1, "pct": 10})
             print("[STREAM] Calling run_query_architect...")         # ADD
@@ -91,6 +99,7 @@ def stream():
                 "citations": citations,
                 "paper_count": len(included),
                 "queries": queries,
+                "backend": backend,
                 "papers": {
                     pmid: {
                         "title": p.get("title", ""),
