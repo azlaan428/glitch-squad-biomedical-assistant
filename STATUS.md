@@ -37,7 +37,7 @@ Side-panel tabbed layout (Main / Integrity Audit / PRISMA / References / Compari
 
 ## Tech Stack
 
-* **LLM: Groq — `llama-3.1-8b-instant` (currently active)**. `agent/agent.py`'s `get_llm()` is hardcoded to Groq; there is no runtime provider switch. The project previously ran inference on **Qwen2.5-72B-Instruct via vLLM on a rented AMD MI300X** during the hackathon (commit `7dd2c52`), then reverted to Groq (commit `f81857a`, 2026-05-05) — the vLLM/Qwen code path no longer exists in the current tree, it's git history only. Re-enabling it means restoring that `get_llm()` implementation and standing up an inference endpoint again.
+* LLM: dual-backend, resolved at runtime by agent/agent.py's _resolve_backend(). If the VLLM_BASE_URL env var is set and the endpoint responds, ARIA uses Qwen2.5-72B-Instruct via vLLM on AMD MI300X; otherwise it falls back to Groq's llama-3.1-8b-instant. This switch is live in the current tree (get_llm(), get_backend_status()), not just git history — correcting an earlier version of this doc that said the vLLM/Qwen path had been removed. In practice the vLLM path is only reachable when a rented AMD MI300X endpoint is actually up (see Deployment status below), so day-to-day runs are on Groq by default.
 * Agent Framework: LangGraph + LangChain
 * Literature Retrieval: BioPython Entrez (PubMed) + Europe PMC REST API
 * Web Framework: Flask with SSE streaming
@@ -97,6 +97,6 @@ There are three remotes; they are **not** in sync:
 
 1. Redeploy or explicitly retire the `hf` (team hackathon) Space — it's currently stale and likely non-functional (dead vLLM endpoint)
 2. Browser-based smoke test of the live `personal` HF Space post-deploy
-3. If dual-provider support is wanted again, reintroduce a `get_llm()` switch (env-var gated) instead of hardcoding Groq, rather than relying on git history to bring Qwen/vLLM back
+3. The get_llm() dual-provider switch already exists (env-var gated via VLLM_BASE_URL); what's actually missing is a live AMD MI300X vLLM endpoint to point it at, since the hackathon's rented instance is presumed no longer running
 4. Demo video (carried over from hackathon submission checklist — status not reconfirmed this session)
 5. Final lablab.ai submission (carried over — status not reconfirmed this session)
